@@ -1,12 +1,235 @@
 {% extends "base_joc.html" %}
-{% block title %}Aventura{% endblock %}
-{% block content_class %}pet-content-scroll{% endblock %}
+{% block title %}Aventură{% endblock %}
+{% block content_class %}pet-content-city{% endblock %}
 
 {% block content %}
-<div class="pet-empty-state">
-    <div class="pet-empty-icon">⚔️</div>
-    <h2>Aventura</h2>
-    <p>Această zonă este în construcție. Revino curând!</p>
-    <a href="{{ url_for('oras') }}" class="pet-btn pet-btn-feed">← Înapoi la Oraș</a>
+<div id="aventura-wrap" style="position:relative;width:100%;height:calc(100vh - var(--footbar-h));overflow:hidden;background:#000;">
+    <div id="phaser-container"></div>
+
+    <!-- HUD -->
+    <div id="aventura-hud" style="position:absolute;top:12px;left:12px;z-index:50;display:flex;gap:8px;align-items:center;">
+        <a href="/joc/petomania/acasa" id="btn-back-aventura"
+           style="background:rgba(0,0,0,0.6);border:1px solid rgba(255,255,255,0.2);
+                  color:#fff;padding:6px 14px;border-radius:8px;font-size:13px;
+                  text-decoration:none;font-family:'Cinzel',serif;">
+            ← Regat
+        </a>
+    </div>
+
+    <!-- Encounter overlay -->
+    <div id="encounter-overlay" style="display:none;position:absolute;inset:0;z-index:100;
+         background:rgba(0,0,0,0.85);align-items:center;justify-content:center;flex-direction:column;gap:16px;">
+        <div style="font-family:'Cinzel',serif;font-size:22px;color:#c9a84c;font-weight:700;">
+            ⚔️ Un companion sălbatic a apărut!
+        </div>
+        <div id="encounter-msg" style="font-size:14px;color:rgba(255,255,255,0.7);text-align:center;"></div>
+        <div style="display:flex;gap:12px;margin-top:8px;">
+            <button onclick="goToVanatoare()"
+                    style="background:#c9a84c;color:#1a1300;font-family:'Cinzel',serif;font-weight:700;
+                           padding:12px 28px;border:none;border-radius:8px;cursor:pointer;font-size:15px;">
+                ⚔️ Luptă
+            </button>
+            <button onclick="closeEncounter()"
+                    style="background:rgba(255,255,255,0.1);color:#fff;font-family:'Cinzel',serif;
+                           padding:12px 28px;border:1px solid rgba(255,255,255,0.2);border-radius:8px;
+                           cursor:pointer;font-size:15px;">
+                🏃 Fugi
+            </button>
+        </div>
+    </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/phaser/3.60.0/phaser.min.js"></script>
+<style>
+.pet-footbar { display: none !important; }
+#phaser-container canvas { display: block; }
+</style>
+<script>
+// ── CONFIG ──────────────────────────────────────────────
+const TILE_SIZE    = 16;
+const MAP_W        = 32;
+const MAP_H        = 32;
+const PLAYER_SPEED = 120;
+const ENCOUNTER_CHANCE = 0.008; // sansa per frame in zona comfind
+
+let encounterCooldown = 0;
+let inEncounter = false;
+
+// ── PHASER SCENE ────────────────────────────────────────
+class AdventureScene extends Phaser.Scene {
+    constructor() { super('AdventureScene'); }
+
+    preload() {
+        this.load.image('tiles', '/static/aventura/Main.png');
+        this.load.tilemapTiledJSON('map', '/static/aventura/01_EntryMap.tmj');
+        // Player sprite — folosim imaginea petului activ
+        this.load.image('player', '{{ pet.image_url if pet else "/static/imagini/sigla.png" }}');
+    }
+
+    create() {
+        const map = this.make.tilemap({ key: 'map' });
+        const tileset = map.addTilesetImage('Main', 'tiles');
+
+        // Tile layers — ordinea contează pentru z
+        const layerApa      = map.createLayer('Apa',      tileset, 0, 0);
+        const layerGrass    = map.createLayer('Grass',    tileset, 0, 0);
+        const layerDrum     = map.createLayer('Drum',     tileset, 0, 0);
+        const layerBoarder  = map.createLayer('Boarder',  tileset, 0, 0);
+        const layerGard     = map.createLayer('Gard',     tileset, 0, 0);
+        const layerGard2    = map.createLayer('Gard2',    tileset, 0, 0);
+        const layerStump    = map.createLayer('Stump',    tileset, 0, 0);
+        const layerFlori    = map.createLayer('Flori',    tileset, 0, 0);
+        const layerSign     = map.createLayer('Sign',     tileset, 0, 0);
+        const layerCompFind = map.createLayer('CompFind', tileset, 0, 0);
+        const layerCopaciSub= map.createLayer('CopaciSub',tileset,0, 0);
+        const layerCopaci   = map.createLayer('Copaci',   tileset, 0, 0);
+
+        // Player spawn
+        const spawnLayer = map.getObjectLayer('PlayerSpawn');
+        let spawnX = MAP_W * TILE_SIZE / 2;
+        let spawnY = MAP_H * TILE_SIZE / 2;
+        if (spawnLayer && spawnLayer.objects.length > 0) {
+            const sp = spawnLayer.objects[0];
+            spawnX = sp.x + sp.width / 2;
+            spawnY = sp.y + sp.height / 2;
+        }
+
+        // Player
+        this.player = this.physics.add.image(spawnX, spawnY, 'player');
+        this.player.setScale(1.2);
+        this.player.setDepth(10);
+        this.player.setCollideWorldBounds(true);
+        this.physics.world.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
+
+        // Collision layer
+        const colLayer = map.getObjectLayer('Colision');
+        if (colLayer) {
+            this.colliders = this.physics.add.staticGroup();
+            colLayer.objects.forEach(obj => {
+                const rect = this.add.rectangle(
+                    obj.x + obj.width / 2,
+                    obj.y + obj.height / 2,
+                    obj.width, obj.height
+                ).setVisible(false);
+                this.physics.add.existing(rect, true);
+                this.colliders.add(rect);
+            });
+            this.physics.add.collider(this.player, this.colliders);
+        }
+
+        // Comfind zones
+        const comfindLayer = map.getObjectLayer('Comfind');
+        this.comfindZones = [];
+        if (comfindLayer) {
+            comfindLayer.objects.forEach(obj => {
+                const zone = this.add.zone(
+                    obj.x + obj.width / 2,
+                    obj.y + obj.height / 2,
+                    obj.width, obj.height
+                );
+                this.physics.add.existing(zone, true);
+                this.comfindZones.push(zone);
+            });
+        }
+
+        // Camera
+        this.cameras.main.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
+        this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
+        this.cameras.main.setZoom(2.5);
+
+        // Input
+        this.cursors = this.input.keyboard.createCursorKeys();
+        this.wasd = this.input.keyboard.addKeys({
+            up:    Phaser.Input.Keyboard.KeyCodes.W,
+            down:  Phaser.Input.Keyboard.KeyCodes.S,
+            left:  Phaser.Input.Keyboard.KeyCodes.A,
+            right: Phaser.Input.Keyboard.KeyCodes.D,
+        });
+
+        // Copaci peste player
+        layerCopaci.setDepth(15);
+    }
+
+    update(time, delta) {
+        if (inEncounter) {
+            this.player.setVelocity(0, 0);
+            return;
+        }
+
+        // Movement
+        const left  = this.cursors.left.isDown  || this.wasd.left.isDown;
+        const right = this.cursors.right.isDown || this.wasd.right.isDown;
+        const up    = this.cursors.up.isDown    || this.wasd.up.isDown;
+        const down  = this.cursors.down.isDown  || this.wasd.down.isDown;
+
+        let vx = 0, vy = 0;
+        if (left)  vx = -PLAYER_SPEED;
+        if (right) vx =  PLAYER_SPEED;
+        if (up)    vy = -PLAYER_SPEED;
+        if (down)  vy =  PLAYER_SPEED;
+
+        // Normalizeaza diagonal
+        if (vx !== 0 && vy !== 0) {
+            vx *= 0.707;
+            vy *= 0.707;
+        }
+        this.player.setVelocity(vx, vy);
+
+        // Encounter check
+        if (encounterCooldown > 0) {
+            encounterCooldown -= delta;
+        } else {
+            const px = this.player.x;
+            const py = this.player.y;
+            const inZone = this.comfindZones.some(zone => {
+                const b = zone.getBounds();
+                return px >= b.left && px <= b.right && py >= b.top && py <= b.bottom;
+            });
+            if (inZone && (vx !== 0 || vy !== 0) && Math.random() < ENCOUNTER_CHANCE) {
+                triggerEncounter();
+            }
+        }
+    }
+}
+
+// ── PHASER INIT ─────────────────────────────────────────
+const wrap = document.getElementById('aventura-wrap');
+const game = new Phaser.Game({
+    type:   Phaser.AUTO,
+    width:  wrap.clientWidth,
+    height: wrap.clientHeight,
+    parent: 'phaser-container',
+    backgroundColor: '#2d5a1b',
+    physics: {
+        default: 'arcade',
+        arcade:  { debug: false }
+    },
+    scene: [AdventureScene],
+});
+
+window.addEventListener('resize', () => {
+    game.scale.resize(wrap.clientWidth, wrap.clientHeight);
+});
+
+// ── ENCOUNTER ────────────────────────────────────────────
+function triggerEncounter() {
+    inEncounter = true;
+    encounterCooldown = 5000;
+    document.getElementById('encounter-msg').textContent =
+        'Ești în zona sălbatică. Vrei să lupți sau să fugi?';
+    document.getElementById('encounter-overlay').style.display = 'flex';
+}
+
+function closeEncounter() {
+    inEncounter = false;
+    encounterCooldown = 3000;
+    document.getElementById('encounter-overlay').style.display = 'none';
+}
+
+function goToVanatoare() {
+    window.location.href = '/joc/petomania/vanatoare';
+}
+</script>
 {% endblock %}
