@@ -1,0 +1,931 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>{% block title %}Petomania{% endblock %} — Regnum Dacorum</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/site.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/petomania.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='imagini/dacoin.png') }}">
+
+    <!-- PWA -->
+    <link rel="manifest" href="/static/manifest.json">
+    <meta name="theme-color" content="#c9a84c">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Petomania">
+    <link rel="apple-touch-icon" href="/static/imagini/sigla.png">
+</head>
+
+<script>
+document.addEventListener('contextmenu', function(e) {
+    e.preventDefault();
+});
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/joc/petomania/sw.js', {scope: '/joc/petomania/'});
+    });
+}
+</script>
+
+
+
+
+<body class="petomania-body">
+
+<div class="pet-layout">
+
+    <!-- SIDEBAR -->
+    <aside class="pet-sidebar">
+
+
+        {% if current_user %}
+        <div class="pet-sidebar-user">
+            <img src="{{ current_user.avatar_url }}" alt="" class="pet-user-avatar">
+            <div class="pet-user-info">
+                <span class="pet-user-name">{{ current_user.username }}</span>
+                <a href="{{ url_for('logout') }}" class="pet-user-logout">Ieșire</a>
+            </div>
+        </div>
+        {% endif %}
+
+        <nav class="pet-nav" id="pet-nav-main">
+            <a href="{{ url_for('acasa') }}"
+               class="pet-nav-item {% if request.endpoint == 'acasa' %}active{% endif %}">
+                <span class="pet-nav-icon">🏠</span>
+                <span>Acasă</span>
+            </a>
+            <a href="{{ url_for('imbunatatiri') }}"
+               class="pet-nav-item {% if request.endpoint == 'imbunatatiri' %}active{% endif %}">
+                <span class="pet-nav-icon">🏪</span>
+                <span>Îmbunătățiri</span>
+            </a>
+            <a href="{{ url_for('menajerie') }}"
+               class="pet-nav-item {% if request.endpoint == 'menajerie' %}active{% endif %}">
+                <span class="pet-nav-icon">🏛️</span>
+                <span>Menajerie</span>
+            </a>
+            {% if current_user and current_user.has_companicon %}
+            <a href="{{ url_for('companicon') }}"
+               class="pet-nav-item {% if request.endpoint == 'companicon' %}active{% endif %}"
+               id="nav-companicon">
+                <span class="pet-nav-icon">📖</span>
+                <span>Companicon</span>
+            </a>
+            {% endif %}
+            <a href="{{ url_for('oras') }}"
+               class="pet-nav-item {% if request.endpoint in ['oras', 'castel', 'biserica', 'piata', 'aventura', 'assets', 'consumable'] %}active{% endif %}">
+                <span class="pet-nav-icon">🏙️</span>
+                <span>Oraș</span>
+            </a>
+        </nav>
+
+
+    </aside>
+
+    <!-- CONTENT -->
+    <main class="pet-content {% block content_class %}{% endblock %}">
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                {% for msg in messages %}
+                    <div class="pet-flash">{{ msg }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </main>
+
+</div>
+
+<!-- FOOTBAR -->
+{% if current_user %}
+<div class="pet-footbar">
+    <div class="pet-footbar-left">
+        <span class="pet-footbar-brand">🐾 Petomania</span>
+        <span class="pet-footbar-sep">·</span>
+        <span class="pet-footbar-user">{{ current_user.username }}</span>
+    </div>
+    <div class="pet-footbar-right">
+        <button class="pet-footbar-rucsac" id="btn-rucsac-toggle" title="Rucsac" onclick="rucsacToggle()">
+            🎒 <span>Rucsac</span>
+        </button>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     RUCSAC PANEL — slide-in global
+     ═══════════════════════════════════════════ -->
+<div class="rucsac-backdrop" id="rucsac-backdrop" onclick="rucsacClose()"></div>
+
+<div class="rucsac-panel" id="rucsac-panel">
+
+    <!-- Header panel -->
+    <div class="rucsac-panel-header">
+        <div class="rucsac-panel-title">
+            <span>🎒</span>
+            <span style="font-family:'Cinzel',serif;font-size:14px;color:var(--gold);font-weight:700;letter-spacing:.05em">Rucsac</span>
+        </div>
+        <button class="rucsac-panel-close" onclick="rucsacClose()" aria-label="Închide rucsac">&#215;</button>
+    </div>
+
+    <!-- Loading state -->
+    <div class="rucsac-loading" id="rucsac-loading">
+        <div class="rucsac-spinner"></div>
+        <span>Se încarcă...</span>
+    </div>
+
+    <!-- Continut (injectat de JS) -->
+    <div class="rucsac-body" id="rucsac-body" style="display:none">
+
+        <div class="rucsac-inner">
+
+            <!-- STANGA: grid iteme -->
+            <div class="rucsac-left">
+                <div class="rucsac-tab-bar">
+                    <button class="rucsac-arrow" id="rb-prev">&#8249;</button>
+                    <span class="rucsac-tab-name" id="rb-tab-name"></span>
+                    <button class="rucsac-arrow" id="rb-next">&#8250;</button>
+                </div>
+                <div class="rucsac-dots" id="rb-dots"></div>
+                <div class="rucsac-slots-wrap">
+                    <div class="rucsac-cat-label"><span></span>sloturi<span></span></div>
+                    <div class="rucsac-grid" id="rb-grid"></div>
+                </div>
+                <div class="rucsac-footer">
+                    <span class="rucsac-slots-info">&#9679; <span id="rb-slots-used">0</span> / 10 sloturi ocupate</span>
+                </div>
+            </div>
+
+            <!-- DREAPTA: companions -->
+            <div class="rucsac-right">
+                <div class="rucsac-right-title">Echipă</div>
+                <div class="rucsac-companions" id="rb-companions"></div>
+                <div class="rucsac-footer">
+                    <span class="rucsac-dacoins">&#9733; <span id="rb-dacoins">0</span> Dacoins</span>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- POPUP ITEM -->
+        <div class="rb-popup-overlay" id="rb-item-overlay">
+            <div class="rb-popup" id="rb-item-popup" onclick="event.stopPropagation()">
+                <div class="popup-item-header">
+                    <span class="popup-item-icon" id="pi-icon"></span>
+                    <div>
+                        <div class="popup-item-name" id="pi-name"></div>
+                        <div class="popup-item-desc" id="pi-desc"></div>
+                    </div>
+                </div>
+                <div class="popup-item-qty">Cantitate: <strong id="pi-qty"></strong> / 12</div>
+                <div class="popup-item-actions">
+                    <button class="popup-action-btn" id="pi-use">&#9654;&nbsp; Folosește</button>
+                    <button class="popup-action-btn" id="pi-offer">&#8596;&nbsp; Oferă</button>
+                    <button class="popup-action-btn danger" id="pi-drop">&#128465;&nbsp; Aruncă</button>
+                </div>
+                <!-- Target selector — apare dupa click Foloseste -->
+                <div id="pi-target-select" style="display:none">
+                    <div class="pi-target-title">Pe cine folosești?</div>
+                    <div class="pi-target-list" id="pi-target-list"></div>
+                </div>
+                <div class="popup-action-msg" id="pi-msg"></div>
+                <button class="popup-close-btn" onclick="rbCloseItemPopup()">&#215; închide</button>
+            </div>
+        </div>
+
+        <!-- POPUP COMPANION -->
+        <div class="rb-popup-overlay" id="rb-comp-overlay">
+            <div class="rb-popup comp-popup" id="rb-comp-popup" onclick="event.stopPropagation()">
+                <div class="comp-popup-header">
+                    <div class="comp-popup-thumb" id="cp-thumb"></div>
+                    <div>
+                        <div class="comp-popup-name" id="cp-name"></div>
+                        <div class="comp-popup-sub" id="cp-sub"></div>
+                        <div class="comp-popup-badges" id="cp-badges"></div>
+                    </div>
+                </div>
+                <div class="comp-popup-hp">
+                    <div class="comp-hp-big-row">
+                        <span class="comp-hp-big-cur" id="cp-hp-cur"></span>
+                        <span class="comp-hp-sep">/</span>
+                        <span class="comp-hp-big-max" id="cp-hp-max"></span>
+                    </div>
+                    <div class="comp-hp-big-bar-bg">
+                        <div class="comp-hp-big-fill" id="cp-hp-bar"></div>
+                    </div>
+                    <div class="comp-hp-pct" id="cp-hp-pct"></div>
+                </div>
+                <div id="cp-view-main">
+                    <div class="comp-popup-actions">
+                        <button class="popup-action-btn" id="cp-btn-rename">&#9998;&nbsp; Redenumește</button>
+                        <button class="popup-action-btn" id="cp-btn-stats">&#9878;&nbsp; Stats</button>
+                        <button class="popup-action-btn" id="cp-btn-companicon">&#128218;&nbsp; Companicon</button>
+                    </div>
+                </div>
+                <div id="cp-view-stats" style="display:none">
+                    <div class="comp-stats-panel">
+                        <div class="comp-stats-title">Statistici de luptă</div>
+                        <div class="comp-stats-grid" id="cp-stats-grid"></div>
+                    </div>
+                    <div style="padding:0 12px 10px">
+                        <button class="popup-action-btn" onclick="cpBackMain()" style="justify-content:center">&#8592; Înapoi</button>
+                    </div>
+                </div>
+                <div id="cp-view-rename" style="display:none">
+                    <div class="comp-rename-panel">
+                        <div class="comp-rename-label">Nume nou pentru companion</div>
+                        <input class="comp-rename-input" id="cp-rename-input" type="text" maxlength="24" placeholder="Introdu un nume...">
+                        <button class="comp-rename-confirm" id="cp-rename-confirm">&#10003; Confirmă</button>
+                        <div class="popup-action-msg" id="cp-rename-msg"></div>
+                    </div>
+                    <div style="padding:0 12px 10px">
+                        <button class="popup-action-btn" onclick="cpBackMain()" style="justify-content:center">&#8592; Înapoi</button>
+                    </div>
+                </div>
+                <button class="popup-close-btn" onclick="rbCloseCompPopup()">&#215; închide</button>
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endif %}
+
+<style>
+/* ── FOOTBAR RUCSAC BUTTON ── */
+.pet-footbar-rucsac{display:inline-flex;align-items:center;gap:5px;font-size:13px;font-weight:600;color:var(--text-secondary);background:none;border:none;cursor:pointer;padding:3px 8px;border-radius:6px;transition:color .15s,background .15s;font-family:inherit}
+.pet-footbar-rucsac:hover,.pet-footbar-rucsac.open{color:var(--gold);background:var(--gold-soft)}
+
+/* ── BACKDROP ── */
+.rucsac-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:299}
+.rucsac-backdrop.open{display:block}
+
+/* ── PANEL ── */
+.rucsac-panel{
+    position:fixed;
+    left:50%;
+    transform:translateX(-50%) translateY(calc(100% + var(--footbar-h)));
+    bottom:var(--footbar-h);
+    width:min(860px, 95vw);
+    height:min(580px, 78vh);
+    background:var(--bg-deep);
+    border:1px solid var(--border-strong);
+    border-radius:16px 16px 0 0;
+    z-index:300;
+    display:flex;flex-direction:column;
+    transition:transform .35s cubic-bezier(.32,.72,0,1);
+}
+.rucsac-panel.open{
+    transform:translateX(-50%) translateY(0);
+}
+
+@media (max-width: 700px) {
+    .rucsac-panel{
+        left:0;
+        width:100%;
+        height:68vh;
+        transform:translateY(calc(100% + var(--footbar-h)));
+        border-radius:14px 14px 0 0;
+    }
+    .rucsac-panel.open{ transform:translateY(0); }
+    .rucsac-inner{ grid-template-columns:1fr; }
+    .rucsac-right{ display:none; }
+    .rucsac-grid{ grid-template-columns:repeat(5,1fr); gap:5px; }
+    .rslot{ border-radius:7px; }
+    .rslot-icon{ font-size:16px; } .rslot-img{ width:32px; height:32px; object-fit:contain; display:block; }
+}
+.pi-target-title{font-family:'Cinzel',serif;font-size:10px;color:var(--text-muted);letter-spacing:.1em;padding:0 0 6px;border-bottom:1px solid var(--border);margin-bottom:4px}
+.pi-target-list{display:flex;flex-direction:column;gap:5px;overflow-y:auto;max-height:260px}
+.pi-target-list .comp-thumb img{width:40px!important;height:40px!important;object-fit:contain!important}
+
+/* ── PANEL HEADER ── */
+.rucsac-panel-header{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:14px 18px 12px;
+    border-bottom:1px solid var(--border);
+    background:var(--bg-card);
+    border-radius:16px 16px 0 0;
+    flex-shrink:0;
+}
+.rucsac-panel-title{display:flex;align-items:center;gap:8px}
+.rucsac-panel-close{
+    background:none;border:none;color:var(--text-muted);cursor:pointer;
+    font-size:20px;width:30px;height:30px;border-radius:6px;
+    display:flex;align-items:center;justify-content:center;
+    transition:color .15s,background .15s;
+}
+.rucsac-panel-close:hover{color:var(--text-primary);background:var(--bg-elev)}
+
+/* ── LOADING ── */
+.rucsac-loading{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;gap:12px;color:var(--text-muted);font-size:13px}
+.rucsac-spinner{width:24px;height:24px;border:2px solid var(--border-strong);border-top-color:var(--gold);border-radius:50%;animation:rb-spin .7s linear infinite}
+@keyframes rb-spin{to{transform:rotate(360deg)}}
+
+/* ── BODY ── */
+.rucsac-body{flex:1;overflow:hidden;position:relative}
+.rucsac-inner{display:grid;grid-template-columns:1fr 220px;height:100%;overflow:hidden}
+
+/* ── LEFT ── */
+.rucsac-left{display:flex;flex-direction:column;border-right:1px solid var(--border);overflow:hidden}
+.rucsac-tab-bar{display:flex;align-items:center;background:var(--bg-card);border-bottom:1px solid var(--border);padding:0 8px;gap:4px;height:44px;flex-shrink:0}
+.rucsac-arrow{background:none;border:none;color:var(--text-muted);cursor:pointer;width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;transition:color .15s,background .15s}
+.rucsac-arrow:hover{color:var(--gold);background:var(--gold-soft)}
+.rucsac-tab-name{flex:1;text-align:center;font-family:'Cinzel',serif;font-size:13px;color:var(--gold);font-weight:700;letter-spacing:.05em}
+.rucsac-dots{display:flex;gap:5px;justify-content:center;padding:6px 0 4px;background:var(--bg-card);border-bottom:1px solid var(--border);flex-shrink:0}
+.rdot{width:6px;height:6px;border-radius:50%;background:var(--border-strong);cursor:pointer;transition:background .15s}
+.rdot.active{background:var(--gold)}
+.rucsac-slots-wrap{padding:14px;flex:1;overflow-y:auto}
+.rucsac-cat-label{font-size:10px;color:var(--text-muted);margin-bottom:10px;font-family:'Cinzel',serif;letter-spacing:.08em;display:flex;align-items:center;gap:8px}
+.rucsac-cat-label span{flex:1;height:1px;background:var(--border)}
+.rucsac-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+.rslot{aspect-ratio:1;border:1px solid var(--border);border-radius:10px;background:var(--bg-elev);display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;transition:border-color .15s,background .15s;user-select:none}
+.rslot.filled{cursor:pointer;border-color:var(--border-strong)}
+.rslot.filled:hover{border-color:var(--gold-dim);background:var(--bg-elev2)}
+.rslot-icon{font-size:22px} .rslot-img{width:40px;height:40px}
+.rslot-qty{position:absolute;bottom:4px;right:6px;font-size:10px;font-weight:700;color:var(--gold)}
+.rslot-empty-ring{font-size:14px;opacity:.12}
+.rucsac-footer{border-top:1px solid var(--border);padding:8px 14px;background:var(--bg-card);flex-shrink:0}
+.rucsac-slots-info,.rucsac-dacoins{font-size:12px;color:var(--gold);font-weight:600}
+
+/* ── RIGHT ── */
+.rucsac-right{background:var(--bg-card);display:flex;flex-direction:column;overflow:hidden}
+.rucsac-right-title{font-family:'Cinzel',serif;font-size:10px;color:var(--text-muted);letter-spacing:.1em;padding:11px 12px 8px;border-bottom:1px solid var(--border);flex-shrink:0}
+.rucsac-companions{display:flex;flex-direction:column;gap:5px;padding:8px;flex:1;overflow-y:auto}
+.rucsac-comp{border:1px solid var(--border);border-radius:9px;background:var(--bg-elev);padding:8px 9px;transition:border-color .15s,background .15s}
+.rucsac-comp:not(.empty){cursor:pointer}
+.rucsac-comp:not(.empty):hover{border-color:var(--border-strong);background:var(--bg-elev2)}
+.rucsac-comp.active{border-color:var(--gold-dim);background:var(--gold-soft)}
+.rucsac-comp.empty{opacity:.45}
+.comp-top-row{display:flex;align-items:center;gap:7px}
+.comp-thumb{width:40px;height:40px;border-radius:6px;background:var(--bg-elev2);border:1px solid var(--border-strong);overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.comp-thumb img{width:40px;height:40px;object-fit:contain}
+.comp-info{flex:1;min-width:0}
+.comp-name{font-size:11px;font-weight:600;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.comp-sub{font-size:10px;color:var(--text-muted)}
+.comp-active-badge{font-size:9px;color:var(--gold);font-weight:700;flex-shrink:0}
+.comp-empty-label{font-size:11px;color:var(--text-muted);text-align:center;padding:8px 0}
+.comp-hp-row{display:flex;justify-content:space-between;margin-top:5px;margin-bottom:3px}
+.comp-hp-label{font-size:9px;color:var(--text-muted);font-weight:600;letter-spacing:.05em}
+.comp-hp-val{font-size:9px;font-weight:700}
+.comp-hp-bar-bg{height:4px;background:rgba(224,82,82,.15);border-radius:100px;overflow:hidden}
+.comp-hp-bar-fill{height:100%;border-radius:100px}
+
+/* ── POPUP OVERLAY (dentro panel) ── */
+.rb-popup-overlay{display:none;position:absolute;inset:0;background:rgba(0,0,0,.72);z-index:10;align-items:center;justify-content:center}
+.rb-popup-overlay.open{display:flex}
+.rb-popup{background:var(--bg-card);border:1px solid var(--border-strong);border-radius:13px;width:270px;overflow:hidden}
+.comp-popup{width:280px}
+
+/* ── POPUP ITEM ── */
+.popup-item-header{display:flex;align-items:center;gap:12px;padding:14px 16px 12px;background:var(--bg-elev);border-bottom:1px solid var(--border)}
+.popup-item-icon{font-size:28px;flex-shrink:0}
+.popup-item-name{font-family:'Cinzel',serif;font-size:13px;color:var(--gold);font-weight:700}
+.popup-item-desc{font-size:11px;color:var(--text-muted);margin-top:2px}
+.popup-item-qty{font-size:11px;color:var(--text-secondary);padding:9px 16px 7px;border-bottom:1px solid var(--border)}
+.popup-item-qty strong{color:var(--gold)}
+.popup-item-actions{display:flex;flex-direction:column;gap:5px;padding:9px 12px}
+.popup-action-btn{width:100%;padding:8px 12px;border-radius:8px;border:1px solid var(--border-strong);background:var(--bg-elev);color:var(--text-primary);font-size:12px;font-weight:600;cursor:pointer;text-align:left;display:flex;align-items:center;gap:8px;transition:background .15s,border-color .15s;font-family:inherit}
+.popup-action-btn:hover{background:var(--bg-elev2);border-color:var(--gold-dim);color:var(--gold)}
+.popup-action-btn.danger:hover{border-color:var(--danger);color:var(--danger)}
+.popup-action-btn:disabled{opacity:.4;cursor:not-allowed}
+.popup-action-msg{min-height:16px;font-size:11px;padding:0 16px 4px;text-align:center}
+.popup-action-msg.ok{color:var(--success)}
+.popup-action-msg.err{color:var(--danger)}
+.popup-close-btn{width:100%;padding:7px;border:none;background:none;color:var(--text-muted);font-size:11px;cursor:pointer;font-family:inherit;border-top:1px solid var(--border)}
+.popup-close-btn:hover{color:var(--text-primary)}
+
+/* ── POPUP COMPANION ── */
+.comp-popup-header{display:flex;align-items:center;gap:12px;padding:14px 16px;background:var(--bg-elev);border-bottom:1px solid var(--border)}
+.comp-popup-thumb{width:46px;height:46px;border-radius:9px;background:var(--bg-elev2);border:1px solid var(--border-strong);overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.comp-popup-thumb img{width:100%;height:100%;object-fit:contain}
+.comp-popup-name{font-family:'Cinzel',serif;font-size:14px;color:var(--gold);font-weight:700}
+.comp-popup-sub{font-size:11px;color:var(--text-muted);margin-top:2px}
+.comp-popup-badges{display:flex;gap:4px;flex-wrap:wrap;margin-top:5px}
+.cpbadge{font-size:9px;padding:2px 7px;border-radius:100px;border:1px solid var(--border-strong);color:var(--text-secondary);background:var(--bg-elev2)}
+.cpbadge.nature{color:var(--gold);border-color:rgba(201,168,76,.3);background:var(--gold-soft)}
+.comp-popup-hp{padding:12px 16px;border-bottom:1px solid var(--border)}
+.comp-hp-big-row{display:flex;align-items:baseline;gap:4px;margin-bottom:5px}
+.comp-hp-big-cur{font-size:22px;font-weight:700}
+.comp-hp-sep,.comp-hp-big-max{font-size:13px;color:var(--text-muted)}
+.comp-hp-big-bar-bg{height:7px;background:rgba(224,82,82,.15);border-radius:100px;overflow:hidden}
+.comp-hp-big-fill{height:100%;border-radius:100px;transition:width .3s}
+.comp-hp-pct{font-size:10px;color:var(--text-muted);text-align:right;margin-top:3px}
+.comp-popup-actions{display:flex;flex-direction:column;gap:5px;padding:10px 12px}
+.comp-stats-panel{padding:12px 16px;border-bottom:1px solid var(--border)}
+.comp-stats-title{font-family:'Cinzel',serif;font-size:10px;color:var(--text-muted);letter-spacing:.08em;margin-bottom:10px}
+.comp-stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px 14px}
+.cstat-row{display:flex;flex-direction:column;gap:3px}
+.cstat-name{font-size:10px;color:var(--text-muted)}
+.cstat-star{font-size:9px;color:var(--gold)}
+.cstat-val-row{display:flex;align-items:center;gap:6px}
+.cstat-val{font-size:13px;font-weight:600;color:var(--text-primary);min-width:28px}
+.cstat-val.bonus{color:var(--gold)}
+.cstat-bar-bg{flex:1;height:3px;background:var(--bg-elev2);border-radius:100px;overflow:hidden}
+.cstat-bar-fill{height:100%;border-radius:100px;background:var(--border-strong)}
+.cstat-bar-fill.bonus{background:var(--gold-dim)}
+.comp-rename-panel{padding:12px 16px;border-bottom:1px solid var(--border)}
+.comp-rename-label{font-size:11px;color:var(--text-muted);margin-bottom:7px}
+.comp-rename-input{width:100%;padding:8px 10px;border-radius:7px;border:1px solid var(--border-strong);background:var(--bg-elev);color:var(--text-primary);font-size:13px;font-family:inherit;outline:none}
+.comp-rename-input:focus{border-color:var(--gold-dim)}
+.comp-rename-confirm{width:100%;margin-top:8px;padding:9px;border-radius:7px;border:1px solid rgba(201,168,76,.3);background:var(--gold-soft);color:var(--gold);font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;transition:background .15s}
+.comp-rename-confirm:hover{background:rgba(201,168,76,.2)}
+</style>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// RUCSAC PANEL — JS global
+// ═══════════════════════════════════════════════════════
+
+const RB_API = {
+    data:   '/joc/petomania/api/rucsac/data',
+    use:    '/joc/petomania/api/rucsac/use',
+    drop:   '/joc/petomania/api/rucsac/drop',
+    rename: '/joc/petomania/api/rucsac/rename',
+    stats:  '/joc/petomania/api/rucsac/comp_stats',
+};
+
+let rbOpen      = false;
+let rbTab       = 0;
+let rbData      = null;  // datele încărcate
+let rbActiveItem = null;
+let rbActiveComp = null;
+
+// ── TOGGLE ────────────────────────────────────────────
+
+function rucsacToggle() {
+    rbOpen ? rucsacClose() : rucsacOpen();
+}
+
+async function rucsacOpen() {
+    rbOpen = true;
+    document.getElementById('rucsac-panel').classList.add('open');
+    document.getElementById('rucsac-backdrop').classList.add('open');
+    document.getElementById('btn-rucsac-toggle').classList.add('open');
+    await rbLoadData();
+}
+
+function rucsacClose() {
+    rbOpen = false;
+    document.getElementById('rucsac-panel').classList.remove('open');
+    document.getElementById('rucsac-backdrop').classList.remove('open');
+    document.getElementById('btn-rucsac-toggle').classList.remove('open');
+    rbCloseItemPopup();
+    rbCloseCompPopup();
+}
+
+// ── LOAD DATA ────────────────────────────────────────
+
+async function rbLoadData() {
+    document.getElementById('rucsac-loading').style.display = 'flex';
+    document.getElementById('rucsac-body').style.display    = 'none';
+    try {
+        const r = await fetch(RB_API.data);
+        rbData  = await r.json();
+        if (rbData.ok) {
+            // Construieste categoria "Toate" — toate itemele existente fara null-uri si fara padding
+            const allSlots = rbData.categories
+                .flatMap(cat => cat.slots.filter(s => s !== null).map(s => ({...s, _cat: cat.key})));
+            rbData.categories.unshift({
+                key: 'toate',
+                name: 'Toate',
+                slots: allSlots,
+                slots_used: allSlots.length,
+            });
+            rbTab = 0;
+            rbRender();
+            document.getElementById('rucsac-loading').style.display = 'none';
+            document.getElementById('rucsac-body').style.display    = 'block';
+        }
+    } catch(e) {
+        document.getElementById('rucsac-loading').innerHTML = '<span style="color:var(--danger)">Eroare la încărcare.</span>';
+    }
+}
+
+// ── RENDER ───────────────────────────────────────────
+
+function rbRender() {
+    rbRenderDots();
+    rbRenderGrid();
+    rbRenderCompanions();
+    document.getElementById('rb-dacoins').textContent = rbData.dacoins;
+}
+
+function rbRenderDots() {
+    const cats = rbData.categories;
+    document.getElementById('rb-dots').innerHTML = cats.map((c, i) =>
+        `<div class="rdot${i === rbTab ? ' active' : ''}" onclick="rbGoTab(${i})"></div>`
+    ).join('');
+}
+
+function rbRenderGrid() {
+    const cat = rbData.categories[rbTab];
+    const isAll = cat.key === 'toate';
+    document.getElementById('rb-tab-name').textContent   = cat.name;
+    document.getElementById('rb-slots-used').textContent = cat.slots_used;
+    // Pe "Toate" nu afisam sloturi goale
+    const slots = isAll ? cat.slots.filter(s => s !== null) : cat.slots;
+    document.getElementById('rb-grid').innerHTML = slots.map((slot, i) => {
+        if (slot) {
+            return `<div class="rslot filled" onclick="rbOpenItemPopup(${i})" title="${slot.name}">
+                ${slot.is_img ? `<img class="rslot-img" src="${slot.icon}" alt="${slot.name}">` : `<span class="rslot-icon">${slot.icon}</span>`}
+                <span class="rslot-qty">${slot.quantity}</span>
+            </div>`;
+        }
+        return `<div class="rslot empty"><span class="rslot-empty-ring">&#9711;</span></div>`;
+    }).join('');
+}
+
+function rbRenderCompanions() {
+    const comps = rbData.companions;
+    document.getElementById('rb-companions').innerHTML = comps.map((c, i) => {
+        if (!c) return `<div class="rucsac-comp empty"><div class="comp-empty-label">Slot ${i+1} gol</div></div>`;
+        const pct = c.hp_max > 0 ? Math.round((c.hp_current / c.hp_max) * 100) : 0;
+        const col = pct > 50 ? '#4caf7d' : pct > 25 ? '#e0a052' : '#e05252';
+        return `<div class="rucsac-comp${c.active ? ' active' : ''}" onclick="rbOpenCompPopup(${i})">
+            <div class="comp-top-row">
+                <div class="comp-thumb"><img src="${c.image_url}" alt="${c.name}" style="width:40px;height:40px;object-fit:contain"></div>
+                <div class="comp-info">
+                    <div class="comp-name">${c.name}</div>
+                    <div class="comp-sub">${c.species} · Nv.${c.level}</div>
+                </div>
+                ${c.active ? '<span class="comp-active-badge">ACTIV</span>' : ''}
+            </div>
+            <div class="comp-hp-row">
+                <span class="comp-hp-label">HP</span>
+                <span class="comp-hp-val" style="color:${col}">${c.hp_current} / ${c.hp_max}</span>
+            </div>
+            <div class="comp-hp-bar-bg"><div class="comp-hp-bar-fill" style="width:${pct}%;background:${col}"></div></div>
+        </div>`;
+    }).join('');
+}
+
+function rbGoTab(i) {
+    rbTab = i;
+    rbRenderDots();
+    rbRenderGrid();
+}
+
+document.getElementById('rb-prev').onclick = () => {
+    rbTab = (rbTab - 1 + rbData.categories.length) % rbData.categories.length;
+    rbRenderDots(); rbRenderGrid();
+};
+document.getElementById('rb-next').onclick = () => {
+    rbTab = (rbTab + 1) % rbData.categories.length;
+    rbRenderDots(); rbRenderGrid();
+};
+
+// ── ITEM POPUP ───────────────────────────────────────
+
+function rbOpenItemPopup(i) {
+    const slot = rbData.categories[rbTab].slots[i];
+    if (!slot) return;
+    rbActiveItem = { ...slot, category: slot._cat || rbData.categories[rbTab].key };
+    if (slot.is_img) {
+        document.getElementById('pi-icon').innerHTML = `<img src="${slot.icon}" style="width:48px;height:48px;object-fit:contain;">`;
+    } else {
+        document.getElementById('pi-icon').textContent = slot.icon;
+    }
+    document.getElementById('pi-name').textContent = slot.name;
+    document.getElementById('pi-desc').textContent = slot.desc;
+    document.getElementById('pi-qty').textContent  = slot.quantity;
+    document.getElementById('pi-msg').textContent  = '';
+    document.getElementById('pi-drop').style.display = slot.quest_item ? 'none' : 'flex';
+    document.getElementById('pi-use').style.display  = slot.quest_item ? 'none' : 'flex';
+    document.getElementById('rb-item-overlay').classList.add('open');
+}
+
+function rbCloseItemPopup() {
+    document.getElementById('rb-item-overlay').classList.remove('open');
+    rbActiveItem = null;
+}
+
+document.getElementById('rb-item-overlay').onclick = (e) => {
+    if (e.target === document.getElementById('rb-item-overlay')) rbCloseItemPopup();
+};
+
+document.getElementById('pi-use').onclick = async () => {
+    if (!rbActiveItem) return;
+
+    // Capture items (nexus) — folosire directa fara target selector
+    if (rbActiveItem.capture_item) {
+        const res = await rbPost(RB_API.use, {
+            category: rbActiveItem.category,
+            item_key: rbActiveItem.item_key,
+            target_slot: 0,
+        });
+        rbShowMsg('pi-msg', res.msg, res.ok);
+        if (res.ok && res.quantity !== undefined) {
+            rbActiveItem.quantity = res.quantity;
+            document.getElementById('pi-qty').textContent = rbActiveItem.quantity;
+        } else if (res.ok) {
+            rbActiveItem.quantity--;
+            document.getElementById('pi-qty').textContent = rbActiveItem.quantity;
+        }
+        return;
+    }
+
+    // Arata target selector pentru alte iteme
+    document.getElementById('pi-use').style.display    = 'none';
+    document.getElementById('pi-offer').style.display  = 'none';
+    document.getElementById('pi-drop').style.display   = 'none';
+    document.getElementById('pi-target-select').style.display = 'block';
+    rbRenderTargets();
+};
+
+function rbRenderTargets() {
+    const comps = rbData.companions;
+    document.getElementById('pi-target-list').innerHTML = comps.map((c, i) => {
+        if (!c) return '';
+        const pct = c.hp_max > 0 ? Math.round((c.hp_current / c.hp_max) * 100) : 0;
+        const col = pct > 50 ? '#4caf7d' : pct > 25 ? '#e0a052' : '#e05252';
+        return `<div class="rucsac-comp${c.active ? ' active' : ''}" onclick="rbUseOnTarget(${i})">
+            <div class="comp-top-row">
+                <div class="comp-thumb"><img src="${c.image_url}" alt="${c.name}"></div>
+                <div class="comp-info">
+                    <div class="comp-name">${c.name}</div>
+                    <div class="comp-sub">${c.species} · Nv.${c.level}${c.active ? ' · <strong>ACTIV</strong>' : ''}</div>
+                </div>
+            </div>
+            <div class="comp-hp-row">
+                <span class="comp-hp-label">HP</span>
+                <span class="comp-hp-val" style="color:${col}">${c.hp_current} / ${c.hp_max}</span>
+            </div>
+            <div class="comp-hp-bar-bg"><div class="comp-hp-bar-fill" style="width:${pct}%;background:${col}"></div></div>
+        </div>`;
+    }).join('') + `<button class="popup-action-btn" style="margin-top:4px" onclick="
+        document.getElementById('pi-target-select').style.display='none';
+        document.getElementById('pi-use').style.display='flex';
+        document.getElementById('pi-offer').style.display='flex';
+        document.getElementById('pi-drop').style.display='flex';
+    ">← Înapoi</button>`;
+}
+
+async function rbUseOnTarget(slotIdx) {
+    if (!rbActiveItem) return;
+    document.getElementById('pi-target-select').style.display = 'none';
+    const res = await rbPost(RB_API.use, {
+        category:    rbActiveItem.category,
+        item_key:    rbActiveItem.item_key,
+        target_slot: slotIdx,
+    });
+    rbShowMsg('pi-msg', res.msg, res.ok);
+    document.getElementById('pi-use').style.display   = 'flex';
+    document.getElementById('pi-offer').style.display = 'flex';
+    document.getElementById('pi-drop').style.display  = 'flex';
+    if (res.ok) {
+        if (!rbActiveItem) return;  // captură a închis popup-ul deja
+        rbActiveItem.quantity--;
+        document.getElementById('pi-qty').textContent = rbActiveItem.quantity;
+        // Actualizeaza HP in companions panel
+        if (res.new_hp !== undefined && rbData.companions[slotIdx]) {
+            rbData.companions[slotIdx].hp_current = res.new_hp;
+        }
+        // Actualizeaza stats pe pagina de acasa daca exista (slot 0 = pet activ)
+        if (slotIdx === 0 && res.new_stats) {
+            ['hunger','happiness','cleanliness','energy'].forEach(s => {
+                const bar = document.getElementById('bar-' + s);
+                const val = document.getElementById('val-' + s);
+                if (bar && res.new_stats[s] !== undefined) bar.style.width = res.new_stats[s] + '%';
+                if (val && res.new_stats[s] !== undefined) val.textContent = res.new_stats[s] + '/100';
+            });
+        }
+        if (rbActiveItem.quantity <= 0) {
+            setTimeout(() => { rbCloseItemPopup(); rbLoadData(); }, 800);
+        } else {
+            rbData.categories[rbTab].slots.find(s => s && s.item_key === rbActiveItem.item_key).quantity = rbActiveItem.quantity;
+            rbRenderGrid();
+            rbRenderCompanions();
+        }
+    }
+}
+
+document.getElementById('pi-offer').onclick = () => {
+    rbShowMsg('pi-msg', 'Funcția de oferire va fi disponibilă în curând.', false);
+};
+
+document.getElementById('pi-drop').onclick = async () => {
+    if (!rbActiveItem) return;
+    if (!confirm(`Arunci 1x ${rbActiveItem.name}?`)) return;
+    const res = await rbPost(RB_API.drop, { category: rbActiveItem.category, item_key: rbActiveItem.item_key, qty: 1 });
+    rbShowMsg('pi-msg', res.ok ? '✅ Aruncat.' : res.msg, res.ok);
+    if (res.ok) {
+        setTimeout(() => { rbCloseItemPopup(); rbLoadData(); }, 800);
+    }
+};
+
+// ── COMPANION POPUP ──────────────────────────────────
+
+function rbOpenCompPopup(i) {
+    const c = rbData.companions[i];
+    if (!c) return;
+    rbActiveComp = c;
+    const pct = c.hp_max > 0 ? Math.round((c.hp_current / c.hp_max) * 100) : 0;
+    const col = pct > 50 ? '#4caf7d' : pct > 25 ? '#e0a052' : '#e05252';
+    document.getElementById('cp-name').textContent        = c.name;
+    document.getElementById('cp-sub').textContent         = `${c.species} · Nv.${c.level} · Forma ${c.form}`;
+    document.getElementById('cp-hp-cur').textContent      = c.hp_current;
+    document.getElementById('cp-hp-cur').style.color      = col;
+    document.getElementById('cp-hp-max').textContent      = c.hp_max;
+    document.getElementById('cp-hp-bar').style.width      = pct + '%';
+    document.getElementById('cp-hp-bar').style.background = col;
+    document.getElementById('cp-hp-pct').textContent      = pct + '%';
+    document.getElementById('cp-thumb').innerHTML         = `<img src="${c.image_url}" alt="${c.name}">`;
+    let badges = `<span class="cpbadge">${c.species_key ? c.species_key.toUpperCase() + '-00' + c.form : ''}</span>`;
+    if (c.nature) badges += `<span class="cpbadge nature">${c.nature_icon || ''} ${c.nature}</span>`;
+    document.getElementById('cp-badges').innerHTML        = badges;
+    document.getElementById('cp-rename-input').value      = c.name;
+    document.getElementById('cp-rename-msg').textContent  = '';
+    cpBackMain();
+    document.getElementById('rb-comp-overlay').classList.add('open');
+    rbLoadCompStats();
+}
+
+function rbCloseCompPopup() {
+    document.getElementById('rb-comp-overlay').classList.remove('open');
+    rbActiveComp = null;
+}
+
+document.getElementById('rb-comp-overlay').onclick = (e) => {
+    if (e.target === document.getElementById('rb-comp-overlay')) rbCloseCompPopup();
+};
+
+async function rbLoadCompStats() {
+    const res = await fetch(RB_API.stats);
+    const data = await res.json();
+    if (!data.ok) return;
+    const LABELS = { hp:'HP', attack:'Atac', defense:'Apărare', speed:'Viteză', evasion:'Eludare', healing:'Vindecare', control:'Control', reflection:'Reflecție' };
+    const MAX    = { hp:400, attack:300, defense:300, speed:300, evasion:300, healing:300, control:300, reflection:300 };
+    document.getElementById('cp-stats-grid').innerHTML = Object.entries(LABELS).map(([k, label]) => {
+        const val = data.stats[k] || 0;
+        const pct = Math.round((val / (MAX[k] || 300)) * 100);
+        const bon = k === data.bonus_stat;
+        return `<div class="cstat-row">
+            <div class="cstat-name">${label}${bon ? ' <span class="cstat-star">✦</span>' : ''}</div>
+            <div class="cstat-val-row">
+                <span class="cstat-val${bon ? ' bonus' : ''}">${val}</span>
+                <div class="cstat-bar-bg"><div class="cstat-bar-fill${bon ? ' bonus' : ''}" style="width:${pct}%"></div></div>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+document.getElementById('cp-btn-rename').onclick = () => {
+    document.getElementById('cp-view-main').style.display   = 'none';
+    document.getElementById('cp-view-stats').style.display  = 'none';
+    document.getElementById('cp-view-rename').style.display = 'block';
+    setTimeout(() => document.getElementById('cp-rename-input').focus(), 50);
+};
+document.getElementById('cp-btn-stats').onclick = () => {
+    document.getElementById('cp-view-main').style.display   = 'none';
+    document.getElementById('cp-view-rename').style.display = 'none';
+    document.getElementById('cp-view-stats').style.display  = 'block';
+};
+document.getElementById('cp-btn-companicon').onclick = () => {
+    if (!rbActiveComp) return;
+    rucsacClose();
+    window.location.href = `/joc/petomania/companicon#${rbActiveComp.species_key}-00${rbActiveComp.form}`;
+};
+document.getElementById('cp-rename-confirm').onclick = async () => {
+    const name = document.getElementById('cp-rename-input').value.trim();
+    if (!name) return;
+    const pet_id = rbActiveComp ? (rbActiveComp.id || 0) : 0;
+    const res = await rbPost(RB_API.rename, { name, pet_id });
+    rbShowMsg('cp-rename-msg', res.ok ? `✅ Redenumit în "${res.name}".` : res.error, res.ok);
+    if (res.ok) {
+        document.getElementById('cp-name').textContent = res.name;
+        if (rbActiveComp) rbActiveComp.name = res.name;
+        rbRenderCompanions();
+    }
+};
+
+function cpBackMain() {
+    document.getElementById('cp-view-stats').style.display  = 'none';
+    document.getElementById('cp-view-rename').style.display = 'none';
+    document.getElementById('cp-view-main').style.display   = 'block';
+}
+
+// ── UTILS ─────────────────────────────────────────────
+
+async function rbPost(url, body) {
+    try {
+        const r = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
+        return await r.json();
+    } catch { return { ok: false, msg: 'Eroare de rețea.' }; }
+}
+
+function rbShowMsg(elId, msg, ok) {
+    const el = document.getElementById(elId);
+    el.textContent = msg;
+    el.className = 'popup-action-msg ' + (ok ? 'ok' : 'err');
+}
+
+// Escape închide panelul
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && rbOpen) rucsacClose(); });
+
+// ── Blocheaza navigarea daca exista o lupta activa ──
+document.querySelectorAll('.pet-nav-item').forEach(link => {
+    link.addEventListener('click', async (e) => {
+        const href = link.getAttribute('href');
+        if (!href || href.includes('/battle')) return; // lasa battle sa treaca
+        try {
+            const resp = await fetch('/joc/petomania/api/battle/state');
+            const data = await resp.json();
+            if (data.ok && data.active) {
+                e.preventDefault();
+                const confirmed = confirm('Ai o luptă în desfășurare! Dacă pleci, lupta va fi abandonată. Continui?');
+                if (confirmed) {
+                    await fetch('/joc/petomania/api/battle/flee', {method: 'POST'});
+                    window.location.href = href;
+                }
+            }
+        } catch(err) {}
+    });
+});
+
+// Daca ?rucsac=1, butonul close duce inapoi la battle
+if (new URLSearchParams(window.location.search).get('rucsac') === '1') {
+    document.addEventListener('DOMContentLoaded', () => {
+        const closeBtn = document.querySelector('.rucsac-panel-close');
+        if (closeBtn) {
+            closeBtn.textContent = '← Luptă';
+            closeBtn.onclick = () => { window.location.href = '/joc/petomania/battle'; };
+        }
+    });
+}
+
+// Daca ?rucsac=1 in URL, deschide rucsacul automat si suprascrie butonul close
+if (new URLSearchParams(window.location.search).get('rucsac') === '1') {
+    window.addEventListener('load', () => {
+        rucsacOpen();
+        // Suprascrie close sa se intoarca la battle
+        const origClose = window.rucsacClose;
+        window.rucsacClose = function() {
+            origClose();
+            window.location.href = '/joc/petomania/battle';
+        };
+        // Ascunde X din rucsac panel si inlocuieste cu "Inapoi la Lupta"
+        const closeBtn = document.querySelector('.rucsac-panel-close');
+        if (closeBtn) {
+            closeBtn.innerHTML = '← Luptă';
+            closeBtn.style.cssText = 'font-size:11px;padding:4px 10px;';
+        }
+    });
+}
+</script>
+
+<link rel="stylesheet" href="{{ url_for('static', filename='css/shop.css') }}">
+
+<div class="shop-overlay" id="shop-overlay">
+    <div class="shop-panel">
+
+        <!-- Header -->
+        <div class="shop-header">
+            <span class="shop-header-icon" id="shop-header-icon">🛒</span>
+            <div class="shop-header-info">
+                <div class="shop-header-name" id="shop-header-name">Magazin</div>
+                <div class="shop-header-npc"  id="shop-header-npc"></div>
+            </div>
+            <div class="shop-header-dacoins">
+                ✦ <span id="shop-dacoins-val">0</span>
+            </div>
+            <button class="shop-close" onclick="closeShop()">✕</button>
+        </div>
+
+        <!-- Tabs categorii -->
+        <div class="shop-tabs" id="shop-tabs"></div>
+
+        <!-- Grid iteme -->
+        <div class="shop-body">
+            <div class="shop-grid" id="shop-grid"></div>
+        </div>
+
+        <!-- Popup confirmare -->
+        <div class="shop-confirm-overlay" id="shop-confirm-overlay">
+            <div class="shop-confirm-box">
+                <div class="shop-confirm-icon" id="shop-confirm-icon"></div>
+                <div class="shop-confirm-name" id="shop-confirm-name"></div>
+                <div class="shop-confirm-desc" id="shop-confirm-desc"></div>
+                <div class="shop-confirm-qty-row">
+                    <button class="shop-qty-btn" onclick="shopQtyChange(-1)">−</button>
+                    <span class="shop-qty-display" id="shop-qty-display">1</span>
+                    <button class="shop-qty-btn" onclick="shopQtyChange(1)">+</button>
+                </div>
+                <div class="shop-confirm-total" id="shop-confirm-total"></div>
+                <div class="shop-confirm-msg"   id="shop-confirm-msg"></div>
+                <div class="shop-confirm-actions">
+                    <button class="shop-confirm-btn cancel" onclick="shopCancelConfirm()">Anulează</button>
+                    <button class="shop-confirm-btn buy"    id="shop-buy-btn" onclick="shopConfirmBuy()">Cumpără</button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/shop_widget.js') }}"></script>
+
+{% block scripts %}{% endblock %}
+</body>
+</html>

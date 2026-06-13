@@ -1,0 +1,435 @@
+{% extends "base_joc.html" %}
+{% block content_class %}pet-content-scroll{% endblock %}
+{% block title %}Menajerie{% endblock %}
+
+{% block content %}
+<div class="pet-page-header">
+    <h1 class="pet-page-title">🏛️ Menajerie</h1>
+</div>
+
+<!-- Loadout Grid -->
+<section class="pet-section">
+    <h2 class="pet-section-title">⚔️ Echipă activă
+        <a href="{{ url_for('loadout') }}" class="men-loadout-link">Editează →</a>
+    </h2>
+    <div class="men-loadout-grid">
+        {% for slot in loadout_slots %}
+        <div class="men-loadout-slot {% if slot.slot == 1 %}men-slot-active{% endif %} {% if slot.empty %}men-slot-empty{% endif %}"{% if slot.empty and slot.slot > 1 %} onclick="openSlotPicker({{ slot.slot }})" style="cursor:pointer"{% endif %}>
+            {% if not slot.empty %}
+            <img src="{{ slot.image_url }}" alt="{{ slot.name }}" class="men-slot-img">
+            <div class="men-slot-name">{{ slot.name }}</div>
+            <div class="men-slot-sub">Nv.{{ slot.level }}</div>
+            {% if slot.slot > 1 %}
+            <button class="men-slot-remove-btn" onclick="removeFromLoadout({{ slot.slot }}, event)">Scoate</button>
+            {% endif %}
+            {% else %}
+            <div class="men-slot-plus">+</div>
+            <div class="men-slot-name men-slot-empty-label">Gol</div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</section>
+
+<!-- Menajerie -->
+<section class="pet-section">
+    <h2 class="pet-section-title">📦 În Menajerie
+        <span class="pet-section-count">{{ men_pets | length }}</span>
+    </h2>
+
+    {% if men_pets %}
+    <div class="pet-men-grid" id="men-grid">
+        {% for p in men_pets %}
+        <div class="pet-men-card men-card-new" id="men-card-{{ p.id }}">
+            <div class="mcn-image-col">
+                <img src="{{ p.image_url }}" alt="{{ p.name }}" class="pet-men-image">
+                <span class="pet-badge pet-badge-species mcn-badge">{{ p.species_name }}</span>
+                {% if p.nat_data %}
+                <span class="pet-badge pet-badge-nature mcn-badge"
+                      style="background: {{ p.nat_data.color }}22; border-color: {{ p.nat_data.color }}55; color: {{ p.nat_data.color }}">
+                    {{ p.nat_data.icon }} {{ p.nat_data.name }}
+                </span>
+                {% endif %}
+            </div>
+            <div class="mcn-info-col">
+                <span class="mcn-form-badge">{{ p.form }}/{{ p.form_max }}</span>
+                <div class="pet-men-name">{{ p.gender_icon }} {{ p.name }}</div>
+                <div class="pet-men-meta">
+                    <span>Nivel {{ p.level }}</span>
+                    <span>🎂 {{ p.age }}</span>
+                </div>
+            </div>
+            <div class="mcn-actions">
+                <button class="mcn-btn mcn-btn-red"
+                        data-id="{{ p.id }}"
+                        data-name="{{ p.name }}"
+                        onclick="promptElibereaza(this)">
+                    Eliberează
+                </button>
+                <button class="mcn-btn mcn-btn-gold pet-btn-activa"
+                        data-id="{{ p.id }}"
+                        data-name="{{ p.name }}">
+                    Activează
+                </button>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="pet-empty-state pet-empty-sm">
+        <p>Menajeria e goală. Adoptă mai multe animale pe Discord!</p>
+    </div>
+    {% endif %}
+</section>
+
+<!-- Slot Picker Overlay -->
+<div id="slot-picker-overlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.65);z-index:200;align-items:center;justify-content:center">
+    <div style="background:var(--bg-elev);border:1px solid var(--border-strong);border-radius:16px;padding:24px;width:90vw;max-width:440px;max-height:80vh;overflow-y:auto;position:relative;box-shadow:0 8px 40px rgba(0,0,0,0.6)">
+        <button onclick="closeSlotPicker()" style="position:absolute;top:12px;right:14px;background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer">✕</button>
+        <div style="font-family:'Cinzel',serif;font-size:16px;font-weight:700;color:var(--gold);text-align:center;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--border)">Adaugă în Echipă</div>
+        <div id="slot-picker-list"></div>
+    </div>
+</div>
+
+<!-- Overlay Eliberare -->
+<div id="elibereaza-overlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.65);z-index:200;align-items:center;justify-content:center">
+    <div style="background:var(--bg-elev);border:1px solid rgba(220,50,50,0.35);border-radius:16px;padding:28px;width:90vw;max-width:400px;position:relative;box-shadow:0 8px 40px rgba(0,0,0,0.6)">
+        <button onclick="closeElibereaza()" style="position:absolute;top:12px;right:14px;background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer">✕</button>
+        <div style="font-family:'Cinzel',serif;font-size:16px;font-weight:700;color:#e05252;text-align:center;margin-bottom:8px">Eliberează Companion</div>
+        <div id="elibereaza-text" style="font-size:13px;color:var(--text-muted);text-align:center;margin-bottom:16px;line-height:1.6"></div>
+        <div style="font-size:13px;margin-bottom:8px;color:var(--text-secondary)">Introdu numele petului pentru confirmare:</div>
+        <input id="elibereaza-input" type="text" placeholder="Numele petului..."
+            style="width:100%;padding:10px 12px;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-size:14px;box-sizing:border-box;margin-bottom:8px">
+        <div id="elibereaza-error" style="color:#e05252;font-size:12px;margin-bottom:8px;min-height:16px"></div>
+        <button onclick="confirmElibereaza()"
+            style="width:100%;padding:12px;background:rgba(220,50,50,0.15);border:1px solid rgba(220,50,50,0.4);color:#e05252;font-family:'Cinzel',serif;font-size:14px;font-weight:600;border-radius:10px;cursor:pointer">
+            Eliberează definitiv
+        </button>
+    </div>
+</div>
+
+<!-- Toast notificare -->
+<div class="pet-toast" id="pet-toast"></div>
+
+{% endblock %}
+
+{% block scripts %}
+<style>
+.men-loadout-link {
+    font-size: 11px;
+    color: var(--text-muted);
+    text-decoration: none;
+    font-family: 'Inter', sans-serif;
+    font-weight: 400;
+    margin-left: 8px;
+    transition: color .15s;
+}
+.men-loadout-link:hover { color: var(--gold); }
+.men-loadout-grid {
+    display: flex;
+    gap: 10px;
+    flex-wrap: nowrap;
+}
+.men-loadout-slot {
+    flex: 1;
+    min-width: 0;
+    aspect-ratio: 3/4;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 8px 4px;
+    transition: border-color .15s;
+    text-align: center;
+    overflow: hidden;
+}
+.men-slot-active {
+    border-color: var(--gold-dim);
+    background: var(--gold-soft);
+    box-shadow: 0 0 0 2px rgba(201,168,76,0.25);
+}
+.men-slot-empty { opacity: 0.45; }
+.men-slot-empty:hover { opacity: 0.8; border-color: var(--gold-dim); }
+.men-slot-img { width: 60%; aspect-ratio: 1; object-fit: contain; }
+.men-slot-name {
+    font-size: clamp(9px, 1vw, 12px);
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    width: 100%;
+    text-align: center;
+    padding: 0 4px;
+}
+.men-slot-sub { font-size: clamp(8px, 0.8vw, 10px); color: var(--text-muted); }
+.men-slot-plus { font-size: 24px; color: var(--text-muted); font-weight: 300; line-height: 1; }
+.men-slot-empty-label { color: var(--text-muted); font-weight: 400; }
+.men-slot-remove-btn {
+    font-size: 10px;
+    padding: 3px 8px;
+    background: rgba(220,50,50,0.12);
+    border: 1px solid rgba(220,50,50,0.3);
+    color: #e05252;
+    border-radius: 6px;
+    cursor: pointer;
+    margin-top: 2px;
+    transition: background 0.15s;
+}
+.men-slot-remove-btn:hover { background: rgba(220,50,50,0.25); }
+.pet-btn-elibereaza {
+    background: rgba(220,50,50,0.10);
+    border: 1px solid rgba(220,50,50,0.30);
+    color: #e05252;
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 12px;
+    cursor: pointer;
+    margin-top: 6px;
+    width: 100%;
+    transition: background 0.15s;
+}
+.pet-btn-elibereaza:hover { background: rgba(220,50,50,0.22); }
+
+/* ── CARD REDESIGN ── */
+.men-card-new {
+    display: grid !important;
+    grid-template-columns: 80px 1fr !important;
+    grid-template-rows: 1fr auto !important;
+    gap: 10px !important;
+}
+.mcn-image-col {
+    grid-row: 1 / 3;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 5px;
+}
+.mcn-image-col .pet-men-image {
+    width: 80px !important;
+    height: 80px !important;
+    border-radius: 8px;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+}
+.mcn-badge {
+    font-size: 10px !important;
+    padding: 5px 6px !important;
+    white-space: nowrap;
+    width: 80px !important;
+    box-sizing: border-box !important;
+    text-align: center !important;
+    border-radius: 8px !important;
+    display: block !important;
+}
+.mcn-info-col {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+.mcn-form-badge {
+    position: absolute;
+    top: 0;
+    right: 0;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 2px 7px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+}
+.mcn-actions {
+    grid-column: 2;
+    display: flex;
+    gap: 8px;
+    align-items: stretch;
+}
+.mcn-btn {
+    flex: 1;
+    padding: 8px 6px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid;
+    transition: background 0.15s;
+    text-align: center;
+}
+.mcn-btn-red {
+    background: rgba(220,50,50,0.10);
+    border-color: rgba(220,50,50,0.30);
+    color: #e05252;
+}
+.mcn-btn-red:hover { background: rgba(220,50,50,0.22); }
+.mcn-btn-gold {
+    background: var(--gold-soft);
+    border-color: rgba(255,215,0,0.3);
+    color: var(--gold);
+}
+.mcn-btn-gold:hover { background: rgba(255,215,0,0.15); }
+</style>
+
+<script>
+const API_ACTIVA = "{{ url_for('api_activa') }}";
+
+document.querySelectorAll('.pet-btn-activa').forEach(btn => {
+    btn.addEventListener('click', async () => {
+        const id   = btn.dataset.id;
+        const name = btn.dataset.name;
+        btn.disabled    = true;
+        btn.textContent = '⏳ ...';
+        try {
+            const resp = await fetch(API_ACTIVA, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({id: parseInt(id)})
+            });
+            const data = await resp.json();
+            if (data.ok) {
+                showToast('✅ ' + data.msg, 'ok');
+                setTimeout(() => location.reload(), 1200);
+            } else {
+                showToast('❌ ' + data.error, 'err');
+                btn.disabled    = false;
+                btn.textContent = '⚡ Activează';
+            }
+        } catch(e) {
+            showToast('❌ Eroare de rețea.', 'err');
+            btn.disabled    = false;
+            btn.textContent = '⚡ Activează';
+        }
+    });
+});
+
+// ── SLOT PICKER ──
+let targetSlot = null;
+
+function openSlotPicker(slot) {
+    targetSlot = slot;
+    const list = document.getElementById('slot-picker-list');
+    list.innerHTML = '';
+    const cards = document.querySelectorAll('.pet-men-card');
+    if (cards.length === 0) {
+        list.innerHTML = '<div style="text-align:center;opacity:0.5;padding:20px;font-size:13px">Menajeria e goală.</div>';
+    } else {
+        cards.forEach(card => {
+            const id   = card.id.replace('men-card-', '');
+            const name = card.querySelector('.pet-men-name')?.textContent?.trim() || '?';
+            const img  = card.querySelector('.pet-men-image')?.src || '';
+            const sub  = card.querySelector('.pet-men-meta span')?.textContent?.trim() || '';
+            const btn  = document.createElement('button');
+            btn.style.cssText = 'display:flex;align-items:center;gap:14px;padding:10px 14px;background:var(--bg-elev);border:1px solid var(--border);border-left:3px solid var(--border);border-radius:10px;margin-bottom:8px;cursor:pointer;width:100%;color:var(--text-primary);font-family:Cinzel,serif;font-size:13px;font-weight:600;transition:background 0.15s,border-color 0.15s;text-align:left';
+            btn.innerHTML = `<img src="${img}" style="width:44px;height:44px;object-fit:contain;border-radius:6px;background:var(--bg-card)"><div style="flex:1"><div>${name}</div><div style="font-size:11px;opacity:0.5;font-family:Inter,sans-serif;font-weight:400">${sub}</div></div><span style="font-size:12px;opacity:0.5">→</span>`;
+            btn.onmouseenter = () => { btn.style.background='var(--gold-soft)'; btn.style.borderColor='var(--gold-dim)'; btn.style.color='var(--gold)'; };
+            btn.onmouseleave = () => { btn.style.background='var(--bg-elev)'; btn.style.borderColor='var(--border)'; btn.style.color='var(--text-primary)'; };
+            btn.onclick = () => addToSlot(parseInt(id), slot);
+            list.appendChild(btn);
+        });
+    }
+    document.getElementById('slot-picker-overlay').style.display = 'flex';
+}
+
+function closeSlotPicker() {
+    document.getElementById('slot-picker-overlay').style.display = 'none';
+}
+
+async function addToSlot(menId, slot) {
+    closeSlotPicker();
+    const resp = await fetch('/joc/petomania/api/loadout/set', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({slot: slot, men_id: menId})
+    });
+    const data = await resp.json();
+    if (data.ok) {
+        showToast('✅ Companion adăugat în echipă!', 'ok');
+        setTimeout(() => location.reload(), 1000);
+    } else {
+        showToast('❌ ' + data.error, 'err');
+    }
+}
+
+// ── SCOATE DIN LOADOUT ──
+async function removeFromLoadout(slot, event) {
+    event.stopPropagation();
+    const resp = await fetch('/joc/petomania/api/loadout/clear', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({slot: slot})
+    });
+    const data = await resp.json();
+    if (data.ok) {
+        showToast('✅ Companion scos din echipă.', 'ok');
+        setTimeout(() => location.reload(), 800);
+    } else {
+        showToast('❌ ' + (data.error || 'Eroare.'), 'err');
+    }
+}
+
+// ── ELIBEREAZĂ ──
+let _elibereazaId   = null;
+let _elibereazaName = null;
+
+function promptElibereaza(btn) {
+    _elibereazaId   = btn.dataset.id;
+    _elibereazaName = btn.dataset.name;
+    document.getElementById('elibereaza-text').textContent =
+        `Ești sigur că vrei să eliberezi definitiv pe "${_elibereazaName}"? Această acțiune este ireversibilă.`;
+    document.getElementById('elibereaza-input').value = '';
+    document.getElementById('elibereaza-error').textContent = '';
+    document.getElementById('elibereaza-overlay').style.display = 'flex';
+}
+
+function closeElibereaza() {
+    document.getElementById('elibereaza-overlay').style.display = 'none';
+    _elibereazaId = null;
+    _elibereazaName = null;
+}
+
+async function confirmElibereaza() {
+    const input = document.getElementById('elibereaza-input').value.trim();
+    if (input !== _elibereazaName) {
+        document.getElementById('elibereaza-error').textContent = 'Numele introdus nu corespunde.';
+        return;
+    }
+    const resp = await fetch('/joc/petomania/api/menajerie/delete', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({id: parseInt(_elibereazaId)})
+    });
+    const data = await resp.json();
+    closeElibereaza();
+    if (data.ok) {
+        showToast('🌿 ' + _elibereazaName + ' a fost eliberat.', 'ok');
+        setTimeout(() => location.reload(), 1000);
+    } else {
+        showToast('❌ ' + (data.error || 'Eroare.'), 'err');
+    }
+}
+
+// ── TOAST ──
+function showToast(msg, type) {
+    const t = document.getElementById('pet-toast');
+    t.textContent = msg;
+    t.className   = 'pet-toast pet-toast-' + type + ' pet-toast-show';
+    setTimeout(() => t.className = 'pet-toast', 3000);
+}
+
+// ── EVENT LISTENERS ──
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('slot-picker-overlay').addEventListener('click', e => {
+        if (e.target === document.getElementById('slot-picker-overlay')) closeSlotPicker();
+    });
+    document.getElementById('elibereaza-overlay').addEventListener('click', e => {
+        if (e.target === document.getElementById('elibereaza-overlay')) closeElibereaza();
+    });
+});
+</script>
+{% endblock %}

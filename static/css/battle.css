@@ -1,0 +1,292 @@
+/* =====================================================
+   battle.css — UI lupta Arena
+   static/css/battle.css
+   ===================================================== */
+
+/* ── Battle wrap ── */
+#battle-wrap {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+#battle-canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* ── Scene ── */
+#battle-scene {
+    position: absolute;
+    inset: 0;
+    bottom: 25%;
+}
+
+/* ── Combatanti ── */
+.bc {
+    position: absolute;
+    display: flex;
+    align-items: flex-end;
+    gap: clamp(6px, 1vw, 14px);
+}
+.bc-enemy {
+    top: 5%; right: 3%;
+    flex-direction: row-reverse;
+}
+.bc-player {
+    bottom: 3%; left: 3%;
+    flex-direction: row;
+}
+.bc-player-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+}
+.bc-img {
+    object-fit: contain;
+    filter: drop-shadow(0 4px 16px rgba(0,0,0,0.8));
+}
+.bc-img-player {
+    width: clamp(90px, 14vw, 220px);
+    height: clamp(90px, 14vw, 220px);
+}
+.bc-img-enemy {
+    width: clamp(80px, 12vw, 190px);
+    height: clamp(80px, 12vw, 190px);
+    transform: scaleX(-1);
+}
+
+/* ── Info box ── */
+.bc-info {
+    background: rgba(10,10,10,0.85);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 10px;
+    padding: clamp(6px, 1vh, 12px) clamp(8px, 1.2vw, 18px);
+    backdrop-filter: blur(6px);
+}
+.bc-info-top {
+    width: clamp(130px, 18vw, 240px);
+}
+.bc-name-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 2px;
+}
+.bc-name {
+    font-family: 'Cinzel', serif;
+    font-size: clamp(12px, 1.2vw, 18px);
+    font-weight: 700;
+    color: #f0e6c8;
+}
+.bc-level {
+    font-size: clamp(9px, 0.9vw, 13px);
+    color: #888;
+}
+.bc-status {
+    font-size: clamp(9px, 0.85vw, 12px);
+    color: #e05252;
+    font-weight: 600;
+    min-height: 14px;
+    margin-bottom: 2px;
+}
+.bc-hp-bg {
+    height: 7px;
+    background: #1a1a1a;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 3px;
+}
+.bc-hp-fill {
+    height: 100%;
+    border-radius: 4px;
+    background: #4caf7d;
+    transition: width .4s, background .4s;
+}
+.bc-hp-txt {
+    font-size: clamp(9px, 0.85vw, 13px);
+    color: #888;
+    font-weight: 600;
+}
+
+/* ── Bottom panel ── */
+#battle-bottom {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 25%;
+    display: flex;
+    flex-direction: row;
+    background: rgba(8,8,8,0.95);
+    border-top: 1px solid rgba(255,255,255,0.08);
+}
+
+#battle-log {
+    flex: 1;
+    overflow-y: auto;
+    padding: clamp(6px, 1vh, 12px) clamp(10px, 1.5vw, 20px);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    border-right: 1px solid rgba(255,255,255,0.06);
+}
+.blog-line {
+    font-size: clamp(10px, 1vw, 14px);
+    color: #b0a88a;
+    line-height: 1.4;
+}
+
+#battle-controls {
+    width: clamp(220px, 28vw, 420px);
+    padding: clamp(6px, 1vh, 12px) clamp(8px, 1vw, 16px);
+    display: flex;
+    flex-direction: column;
+    gap: clamp(4px, 0.5vh, 8px);
+    flex-shrink: 0;
+}
+
+/* ── Meniu principal 2x2 ── */
+#battle-menu {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    gap: clamp(4px, 0.5vw, 8px);
+    flex: 1;
+}
+.bmenu-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    background: #0e0e0e;
+    border: 2px solid #2a2a2a;
+    border-radius: 10px;
+    color: #d0c8a8;
+    cursor: pointer;
+    font-family: 'Cinzel', serif;
+    font-size: clamp(11px, 1.1vw, 14px);
+    font-weight: 700;
+    transition: background .15s, border-color .15s, color .15s;
+}
+.bmenu-btn:hover:not(:disabled) { background: rgba(201,168,76,0.12); border-color: rgba(201,168,76,0.5); color: #c9a84c; }
+.bmenu-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.bmenu-btn.fight   { border-color: #c9a84c; color: #c9a84c; }
+.bmenu-btn.bag     { border-color: #5b9bd5; color: #5b9bd5; }
+.bmenu-btn.pet     { border-color: #4caf7d; color: #4caf7d; }
+.bmenu-btn.run     { border-color: #888; color: #888; }
+.bmenu-btn.fight:hover { background: rgba(201,168,76,0.15); }
+.bmenu-btn.bag:hover   { background: rgba(91,155,213,0.15); }
+.bmenu-btn.pet:hover   { background: rgba(76,175,125,0.15); }
+.bmenu-btn.run:hover   { background: rgba(136,136,136,0.15); color: #e05252; border-color: #e05252; }
+
+/* ── Moves panel ── */
+#battle-moves-panel {
+    display: none;
+    flex: 1;
+    flex-direction: column;
+    gap: 4px;
+    min-height: 0;
+}
+#battle-moves-panel.open { display: flex; }
+#battle-moves-back {
+    background: none;
+    border: none;
+    color: #888;
+    font-size: clamp(10px, 1vw, 13px);
+    cursor: pointer;
+    text-align: left;
+    padding: 2px 4px;
+    font-family: 'Cinzel', serif;
+    transition: color .15s;
+}
+#battle-moves-back:hover { color: #c9a84c; }
+
+#battle-moves {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    gap: clamp(4px, 0.5vw, 8px);
+    flex: 1;
+}
+.bmove {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: clamp(4px, 0.6vh, 8px) 8px;
+    background: #0e0e0e;
+    border: 2px solid #2a2a2a;
+    border-radius: 10px;
+    color: #d0c8a8;
+    cursor: pointer;
+    font-family: 'Cinzel', serif;
+    font-size: clamp(10px, 0.95vw, 13px);
+    font-weight: 700;
+    transition: background .15s, border-color .15s, color .15s;
+}
+.bmove:hover:not(:disabled) { background: rgba(201,168,76,0.12); border-color: rgba(201,168,76,0.5); color: #c9a84c; }
+.bmove:disabled { opacity: 0.4; cursor: not-allowed; }
+.bmove-icon { font-size: clamp(14px, 1.4vw, 20px); flex-shrink: 0; }
+.bmove-name { text-align: center; line-height: 1.2; }
+
+/* ── Switch overlay ── */
+#switch-overlay {
+    position: absolute; inset: 0;
+    background: rgba(0,0,0,0.88);
+    display: none; align-items: center; justify-content: center;
+    z-index: 50;
+}
+#switch-overlay.open { display: flex; }
+.switch-box {
+    background: #111; border: 1px solid #2a2a2a;
+    border-radius: 14px; padding: 24px 28px;
+    display: flex; flex-direction: column; gap: 12px;
+    min-width: 280px; text-align: center;
+}
+.switch-title {
+    font-family: 'Cinzel', serif; font-size: 15px;
+    font-weight: 700; color: #c9a84c;
+}
+.switch-list { display: flex; flex-direction: column; gap: 8px; }
+.switch-pet {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 12px; background: #1a1a1a;
+    border: 1px solid #2a2a2a; border-radius: 8px;
+    cursor: pointer; transition: background .15s, border-color .15s;
+}
+.switch-pet:hover { background: rgba(201,168,76,0.1); border-color: rgba(201,168,76,0.4); }
+.switch-pet img { width: 40px; height: 40px; object-fit: contain; }
+.switch-pet-info { flex: 1; text-align: left; }
+.switch-pet-name { font-size: 13px; font-weight: 600; color: #f0e6c8; }
+.switch-pet-hp { font-size: 11px; color: #888; }
+.switch-none { font-size: 12px; color: #666; font-style: italic; }
+
+/* ── Result overlay ── */
+#result-overlay {
+    position: absolute; inset: 0;
+    background: rgba(0,0,0,0.88);
+    display: none; align-items: center; justify-content: center; z-index: 60;
+}
+#result-overlay.open { display: flex; }
+.result-box {
+    background: #111; border: 1px solid #2a2a2a; border-radius: 16px;
+    padding: 36px 48px; display: flex; flex-direction: column;
+    align-items: center; gap: 14px; text-align: center;
+}
+.result-icon { font-size: 52px; }
+.result-title { font-family: 'Cinzel', serif; font-size: 24px; font-weight: 700; color: #c9a84c; }
+.result-reward { font-size: 15px; color: #c9a84c; font-weight: 600; min-height: 20px; }
+.result-btn {
+    margin-top: 8px; padding: 10px 28px;
+    background: rgba(201,168,76,0.12); border: 1px solid rgba(201,168,76,0.4);
+    border-radius: 8px; color: #c9a84c;
+    font-family: 'Cinzel', serif; font-size: 13px; font-weight: 700;
+    cursor: pointer; transition: background .15s;
+}
+.result-btn:hover { background: rgba(201,168,76,0.22); }

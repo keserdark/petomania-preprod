@@ -1,0 +1,23 @@
+{
+    "name": "Petomania — Regnum Dacorum",
+    "short_name": "Petomania",
+    "description": "Îngrijește, antrenează și luptă cu companionii tăi în Regnum Dacorum.",
+    "start_url": "/joc/petomania/",
+    "scope": "/joc/petomania/",
+    "display": "standalone",
+    "background_color": "#0d0f12",
+    "theme_color": "#c9a84c",
+    "orientation": "portrait",
+    "icons": [
+        {
+            "src": "/static/imagini/sigla.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        },
+        {
+            "src": "/static/imagini/sigla.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        }
+    ]
+}

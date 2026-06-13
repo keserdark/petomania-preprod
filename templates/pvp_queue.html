@@ -1,0 +1,107 @@
+{% extends "base_joc.html" %}
+{% block title %}Coadă PvP{% endblock %}
+{% block content_class %}pet-content-scroll{% endblock %}
+
+{% block content %}
+<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;gap:24px;padding:40px 20px;text-align:center;">
+
+    <div style="font-size:48px;" id="queue-icon">⚔️</div>
+
+    <div>
+        <div style="font-family:'Cinzel',serif;font-size:22px;font-weight:700;color:var(--gold);margin-bottom:8px"
+             id="queue-title">Se caută adversar...</div>
+        <div style="font-size:14px;color:var(--text-muted)" id="queue-sub">
+            Aștepți în coadă. Va dura puțin.
+        </div>
+    </div>
+
+    <!-- Indicator animat -->
+    <div style="display:flex;gap:8px;align-items:center;" id="queue-dots">
+        <div class="queue-dot"></div>
+        <div class="queue-dot"></div>
+        <div class="queue-dot"></div>
+    </div>
+
+    <!-- Timp așteptat -->
+    <div style="font-size:13px;color:var(--text-muted)" id="queue-timer">
+        Timp așteptat: <span id="waited-sec">0</span>s
+    </div>
+
+    <button onclick="leaveQueue()"
+            style="background:var(--bg-elev);border:1px solid var(--border);color:var(--text-muted);
+                   padding:10px 24px;border-radius:8px;cursor:pointer;font-size:13px;margin-top:8px">
+        ✕ Ieși din coadă
+    </button>
+
+</div>
+
+<style>
+.queue-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--gold);
+    animation: qdot 1.2s ease-in-out infinite;
+}
+.queue-dot:nth-child(2) { animation-delay: 0.2s; }
+.queue-dot:nth-child(3) { animation-delay: 0.4s; }
+@keyframes qdot {
+    0%, 100% { opacity: 0.2; transform: scale(0.8); }
+    50%       { opacity: 1;   transform: scale(1.2); }
+}
+</style>
+
+<script>
+const API = '/joc/petomania/api/pvp';
+let waitedSec = 0;
+let pollInterval = null;
+
+async function poll() {
+    try {
+        const resp = await fetch(API + '/queue/poll');
+        const data = await resp.json();
+
+        if (data.status === 'matched') {
+            clearInterval(pollInterval);
+            document.getElementById('queue-icon').textContent = '🏆';
+            document.getElementById('queue-title').textContent = 'Adversar găsit!';
+            document.getElementById('queue-sub').textContent = 'Se încarcă lupta...';
+            document.getElementById('queue-dots').style.display = 'none';
+            setTimeout(() => {
+                window.location.href = API.replace('/api/pvp', '') + '/pvp/battle/' + data.match_id;
+            }, 800);
+            return;
+        }
+
+        if (data.status === 'not_in_queue') {
+            // A expirat sau a fost dat afara
+            clearInterval(pollInterval);
+            window.location.href = '/joc/petomania/arena';
+            return;
+        }
+
+        // waiting — actualizeaza timer
+        waitedSec++;
+        document.getElementById('waited-sec').textContent = waitedSec;
+
+    } catch(e) {
+        console.error('Poll error:', e);
+    }
+}
+
+async function leaveQueue() {
+    clearInterval(pollInterval);
+    await fetch(API + '/queue/leave', { method: 'POST' });
+    window.location.href = '/joc/petomania/arena';
+}
+
+// Porneste polling la 2s
+pollInterval = setInterval(poll, 2000);
+poll();
+
+// Abandon la inchidere pagina
+window.addEventListener('pagehide', () => {
+    navigator.sendBeacon(API + '/queue/leave');
+});
+</script>
+{% endblock %}

@@ -1,0 +1,276 @@
+{% extends "base_joc.html" %}
+{% block content_class %}pet-content-city{% endblock %}
+{% block title %}Oraș{% endblock %}
+
+{% block content %}
+<div class="city-wrap">
+    <canvas id="city-canvas"></canvas>
+    <div id="city-tooltip" class="city-tooltip"></div>
+
+    <!-- Buton Locatii — deasupra canvasului -->
+    <button class="room-care-btn" id="btn-locatii" onclick="toggleLocatii()" style="z-index:30;">
+        🗺️ Locații
+    </button>
+
+    <!-- Panel Locatii -->
+    <div class="city-locations-panel" id="city-locations-panel">
+        <div class="city-loc-header">
+            <span>🗺️ Locații</span>
+            <button class="care-panel-close" onclick="toggleLocatii()">✕</button>
+        </div>
+        <a href="{{ url_for('castel') }}" class="city-loc-item">
+            <span class="city-loc-icon">🏰</span>
+            <div>
+                <div class="city-loc-name">Castel</div>
+                <div class="city-loc-desc">Reședința regelui</div>
+            </div>
+        </a>
+        <a href="{{ url_for('biserica') }}" class="city-loc-item">
+            <span class="city-loc-icon">⛪</span>
+            <div>
+                <div class="city-loc-name">Biserică</div>
+                <div class="city-loc-desc">Loc de rugăciune</div>
+            </div>
+        </a>
+        <a href="{{ url_for('piata') }}" class="city-loc-item">
+            <span class="city-loc-icon">🏪</span>
+            <div>
+                <div class="city-loc-name">Piață</div>
+                <div class="city-loc-desc">Comerț și schimburi</div>
+            </div>
+        </a>
+        <a href="{{ url_for('aventura') }}" class="city-loc-item">
+            <span class="city-loc-icon">⚔️</span>
+            <div>
+                <div class="city-loc-name">Aventură</div>
+                <div class="city-loc-desc">Misiuni și explorare</div>
+            </div>
+        </a>
+        <a href="{{ url_for('arena') }}" class="city-loc-item">
+            <span class="city-loc-icon">🏟️</span>
+            <div>
+                <div class="city-loc-name">Arenă</div>
+                <div class="city-loc-desc">Luptă PvP</div>
+            </div>
+        </a>
+        <a href="{{ url_for('padure') }}" class="city-loc-item">
+            <span class="city-loc-icon">🌲</span>
+            <div>
+                <div class="city-loc-name">Pădure</div>
+                <div class="city-loc-desc">Vânătoare și explorare</div>
+            </div>
+        </a>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+
+function toggleLocatii() {
+    const panel = document.getElementById('city-locations-panel');
+    const btn   = document.getElementById('btn-locatii');
+    const open  = panel.classList.toggle('city-loc-open');
+    btn.style.opacity = open ? '0' : '1';
+    btn.style.pointerEvents = open ? 'none' : 'auto';
+}
+
+const ZONES = [
+    { file: 'castel.png',   href: '{{ url_for("castel") }}',   label: '🏰 Castel' },
+    { file: 'biserica.png', href: '{{ url_for("biserica") }}', label: '⛪ Biserică' },
+    { file: 'piata.png',    href: '{{ url_for("piata") }}',    label: '🏪 Piață' },
+    { file: 'aventura.png', href: '{{ url_for("aventura") }}', label: '⚔️ Aventură' },
+    { file: 'arena.png',    href: '{{ url_for("arena") }}',    label: '🏟️ Arenă' },
+    { file: 'padure.png',   href: '{{ url_for("padure") }}',   label: '🌲 Pădure' },
+];
+
+const BASE = '/static/city/';
+const canvas  = document.getElementById('city-canvas');
+const ctx     = canvas.getContext('2d', { willReadFrequently: true });
+const tooltip = document.getElementById('city-tooltip');
+const wrap    = canvas.parentElement;
+
+// Canvas dimensiune fixa 1024x1024 — scalat prin CSS
+canvas.width  = 1024;
+canvas.height = 1024;
+
+// Incarca fundalul + toate zonele
+const bgImg = new Image();
+bgImg.src = BASE + 'city.png';
+
+const zoneImgs = ZONES.map(z => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.src = BASE + z.file;
+    return img;
+});
+
+// Canvase offscreen per zona pentru hit detection
+const offscreens = ZONES.map(() => {
+    const oc = document.createElement('canvas');
+    oc.width = 1024;
+    oc.height = 1024;
+    return oc;
+});
+
+let loaded = 0;
+const total = ZONES.length + 1;
+
+function onLoad() {
+    loaded++;
+    if (loaded < total) return;
+
+    // Deseneaza fundalul
+    ctx.drawImage(bgImg, 0, 0, 1024, 1024);
+
+    // Deseneaza zonele si pregateste offscreens
+    zoneImgs.forEach((img, i) => {
+        ctx.drawImage(img, 0, 0, 1024, 1024);
+        const oc = offscreens[i].getContext('2d', { willReadFrequently: true });
+        oc.drawImage(img, 0, 0, 1024, 1024);
+    });
+}
+
+bgImg.onload = onLoad;
+zoneImgs.forEach(img => { img.onload = onLoad; });
+
+// Hit detection — verifica alpha pe fiecare zona in ordine inversa
+let lastMove = 0;
+canvas.addEventListener('mousemove', (e) => {
+    const now = Date.now();
+    if (now - lastMove < 33) return; // max 30fps
+    lastMove = now;
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = 1024 / rect.width;
+    const scaleY = 1024 / rect.height;
+    const x = Math.floor((e.clientX - rect.left) * scaleX);
+    const y = Math.floor((e.clientY - rect.top)  * scaleY);
+
+    let hit = null;
+    for (let i = zoneImgs.length - 1; i >= 0; i--) {
+        const oc = offscreens[i].getContext('2d', { willReadFrequently: true });
+        const alpha = oc.getImageData(x, y, 1, 1).data[3];
+        if (alpha > 20) {
+            hit = i;
+            break;
+        }
+    }
+
+    if (hit !== null) {
+        canvas.style.cursor = 'pointer';
+        tooltip.textContent = ZONES[hit].label;
+        tooltip.style.opacity = '1';
+        tooltip.style.left = (e.clientX - wrap.getBoundingClientRect().left + 14) + 'px';
+        tooltip.style.top  = (e.clientY - wrap.getBoundingClientRect().top  - 8)  + 'px';
+
+        // Glow pe zona hovering
+        redraw(hit);
+    } else {
+        canvas.style.cursor = 'default';
+        tooltip.style.opacity = '0';
+        redraw(null);
+    }
+});
+
+canvas.addEventListener('click', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = 1024 / rect.width;
+    const scaleY = 1024 / rect.height;
+    const x = Math.floor((e.clientX - rect.left) * scaleX);
+    const y = Math.floor((e.clientY - rect.top)  * scaleY);
+
+    for (let i = zoneImgs.length - 1; i >= 0; i--) {
+        const oc = offscreens[i].getContext('2d', { willReadFrequently: true });
+        const alpha = oc.getImageData(x, y, 1, 1).data[3];
+        if (alpha > 20) {
+            window.location = ZONES[i].href;
+            return;
+        }
+    }
+});
+
+canvas.addEventListener('mouseleave', () => {
+    tooltip.style.opacity = '0';
+    canvas.style.cursor = 'default';
+    redraw(null);
+});
+
+function redraw(hoverIdx) {
+    ctx.clearRect(0, 0, 1024, 1024);
+    ctx.drawImage(bgImg, 0, 0, 1024, 1024);
+
+    zoneImgs.forEach((img, i) => {
+        if (i === hoverIdx) {
+            ctx.save();
+            ctx.filter = 'brightness(1.4) drop-shadow(0 0 18px rgba(255,215,0,1))';
+            ctx.drawImage(img, 0, 0, 1024, 1024);
+            ctx.restore();
+        } else {
+            ctx.drawImage(img, 0, 0, 1024, 1024);
+        }
+    });
+}
+
+// Shine automat — toate odata, puls la fiecare 3 secunde
+// Shine automat cu fade in/out
+let isHovering = false;
+let fadeAlpha = 0;
+let fadeDir = 1; // 1 = fade in, -1 = fade out
+let fadActive = false;
+
+function fadeStep() {
+    if (isHovering) return;
+
+    fadeAlpha += fadeDir * 0.05;
+
+    if (fadeAlpha >= 1) {
+        fadeAlpha = 1;
+        fadeDir = -1;
+    } else if (fadeAlpha <= 0) {
+        fadeAlpha = 0;
+        fadeDir = 1;
+        fadActive = false;
+        // Redeseneaza o singura data la final
+        ctx.clearRect(0, 0, 1024, 1024);
+        ctx.drawImage(bgImg, 0, 0, 1024, 1024);
+        zoneImgs.forEach(img => ctx.drawImage(img, 0, 0, 1024, 1024));
+        return;
+    }
+
+    // Deseneaza baza o singura data
+    ctx.clearRect(0, 0, 1024, 1024);
+    ctx.drawImage(bgImg, 0, 0, 1024, 1024);
+    zoneImgs.forEach(img => ctx.drawImage(img, 0, 0, 1024, 1024));
+
+    // Overlay galben simplu cu alpha — fara filter
+    ctx.save();
+    ctx.globalAlpha = fadeAlpha * 0.35;
+    ctx.fillStyle = 'rgba(255, 215, 0, 1)';
+    ctx.globalCompositeOperation = 'lighter';
+    zoneImgs.forEach(img => ctx.drawImage(img, 0, 0, 1024, 1024));
+    ctx.restore();
+
+    requestAnimationFrame(fadeStep);
+}
+
+// Porneste pulse la fiecare 3 secunde
+setInterval(() => {
+    if (isHovering || fadActive) return;
+    fadActive = true;
+    fadeAlpha = 0;
+    fadeDir = 1;
+    requestAnimationFrame(fadeStep);
+}, 3000);
+
+canvas.addEventListener('mouseenter', () => {
+    isHovering = true;
+    fadActive = false;
+});
+canvas.addEventListener('mouseleave', () => {
+    isHovering = false;
+    redraw(null);
+});
+
+</script>
+{% endblock %}

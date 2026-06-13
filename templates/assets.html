@@ -1,0 +1,406 @@
+{% extends "base_joc.html" %}
+{% block content_class %}pet-content-city{% endblock %}
+{% block title %}Assets{% endblock %}
+
+{% block content %}
+<div class="assets-wrap">
+    <canvas id="assets-canvas"></canvas>
+    <div id="assets-tooltip" class="city-tooltip"></div>
+
+    <!-- Popup Lady — meniu principal -->
+    <div class="assets-popup-overlay" id="lady-overlay">
+        <div class="assets-popup">
+            <button class="assets-popup-close" onclick="closePopup()">✕</button>
+            <div class="assets-popup-deco"></div>
+            <div class="assets-popup-title">👸 Lunara Silvermist</div>
+            <button class="assets-popup-btn" onclick="openDialog()">
+                <span class="assets-popup-btn-icon">💬</span>
+                <span>Vorbește cu Doamna</span>
+            </button>
+            <button class="assets-popup-btn" onclick="closePopup(); openShop('lunara')">
+                <span class="assets-popup-btn-icon">🛒</span>
+                <span>Magazin</span>
+            </button>
+            <button class="assets-popup-btn" onclick="closePopup(); openNatureTable()">
+                <span class="assets-popup-btn-icon">📜</span>
+                <span>Cere informații suplimentare</span>
+            </button>
+            <button class="assets-popup-btn" onclick="closePopup()">
+                <span class="assets-popup-btn-icon">🎉</span>
+                <span>Eveniment</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Popup Dialog Lunara -->
+    <div class="assets-popup-overlay" id="dialog-overlay">
+        <div class="assets-popup assets-dialog">
+            <button class="assets-popup-close" onclick="closeDialog()">✕</button>
+            <div class="assets-popup-deco"></div>
+            <div class="assets-popup-title">👸 Lunara Silvermist</div>
+            <div class="assets-dialog-text" id="dialog-text">
+                <div class="assets-dialog-loading">Se încarcă...</div>
+            </div>
+            <div id="dialog-actions"></div>
+        </div>
+    </div>
+
+    <!-- Popup Tabel Naturi -->
+    <div class="assets-popup-overlay" id="nature-overlay">
+        <div class="assets-popup" style="max-width:520px;width:95vw">
+            <button class="assets-popup-close" onclick="closeNatureTable()">✕</button>
+            <div class="assets-popup-title">⚔️ Tabel Interacțiuni Naturi</div>
+            <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;text-align:center">Linii = atacator · Coloane = țintă</div>
+            <div style="overflow-x:auto">
+                <table id="nature-mat" style="border-collapse:collapse;font-size:11px;margin:0 auto"></table>
+            </div>
+            <div style="display:flex;gap:12px;justify-content:center;margin-top:10px;font-size:11px;color:var(--text-muted)">
+                <span><span style="display:inline-block;width:10px;height:10px;background:#1D9E75;border-radius:2px;margin-right:3px"></span>2× super eficace</span>
+                <span><span style="display:inline-block;width:10px;height:10px;background:#378ADD;border-radius:2px;margin-right:3px"></span>½× ineficace</span>
+                <span><span style="display:inline-block;width:10px;height:10px;background:#444;border-radius:2px;margin-right:3px"></span>0× imun</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Buton Inapoi -->
+    <a href="{{ url_for('piata') }}" class="room-care-btn"
+       style="z-index:30; top:auto; bottom:14px; right:auto; left:14px;">
+        ← Piață
+    </a>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/assets.css') }}">
+<script>
+const W = 2730;
+const H = 1536;
+const BASE = '/static/Assets/';
+
+const canvas  = document.getElementById('assets-canvas');
+const ctx     = canvas.getContext('2d', { willReadFrequently: true });
+const tooltip = document.getElementById('assets-tooltip');
+const wrap    = canvas.parentElement;
+
+canvas.width  = W;
+canvas.height = H;
+
+const bgImg   = new Image();
+bgImg.crossOrigin = 'anonymous';
+bgImg.src = BASE + 'Assets.png';
+
+const ladyImg = new Image();
+ladyImg.crossOrigin = 'anonymous';
+ladyImg.src = BASE + 'Lady.png';
+
+const ladyOff = document.createElement('canvas');
+ladyOff.width  = W;
+ladyOff.height = H;
+
+let loaded = 0;
+function onLoad() {
+    loaded++;
+    if (loaded < 2) return;
+    ctx.drawImage(bgImg,   0, 0, W, H);
+    ctx.drawImage(ladyImg, 0, 0, W, H);
+    const oc = ladyOff.getContext('2d', { willReadFrequently: true });
+    oc.drawImage(ladyImg, 0, 0, W, H);
+}
+bgImg.onload   = onLoad;
+ladyImg.onload = onLoad;
+
+function redraw(hover) {
+    ctx.clearRect(0, 0, W, H);
+    ctx.drawImage(bgImg, 0, 0, W, H);
+    ctx.drawImage(ladyImg, 0, 0, W, H);
+    if (hover) {
+        ctx.save();
+        ctx.globalAlpha = 0.45;
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.drawImage(ladyImg, 0, 0, W, H);
+        ctx.restore();
+    }
+}
+
+let lastHit = 0;
+let currentHover = false;
+
+canvas.addEventListener('mousemove', (e) => {
+    if (popupOpen) return;
+    if (currentHover) {
+        tooltip.style.left = (e.clientX - wrap.getBoundingClientRect().left + 14) + 'px';
+        tooltip.style.top  = (e.clientY - wrap.getBoundingClientRect().top  - 8)  + 'px';
+    }
+    const now = Date.now();
+    if (now - lastHit < 33) return;
+    lastHit = now;
+    const rect  = canvas.getBoundingClientRect();
+    const x = Math.floor((e.clientX - rect.left) * W / rect.width);
+    const y = Math.floor((e.clientY - rect.top)  * H / rect.height);
+    const oc    = ladyOff.getContext('2d', { willReadFrequently: true });
+    const alpha = oc.getImageData(x, y, 1, 1).data[3];
+    const hit   = alpha > 20;
+    if (hit !== currentHover) {
+        currentHover = hit;
+        canvas.style.cursor   = hit ? 'pointer' : 'default';
+        tooltip.style.opacity = hit ? '1' : '0';
+        if (hit) tooltip.textContent = '👸 Lunara Silvermist';
+        redraw(hit);
+    }
+});
+
+canvas.addEventListener('click', (e) => {
+    const rect  = canvas.getBoundingClientRect();
+    const x = Math.floor((e.clientX - rect.left) * W / rect.width);
+    const y = Math.floor((e.clientY - rect.top)  * H / rect.height);
+    const oc    = ladyOff.getContext('2d', { willReadFrequently: true });
+    const alpha = oc.getImageData(x, y, 1, 1).data[3];
+    if (alpha > 20) openPopup();
+});
+
+canvas.addEventListener('mouseleave', () => {
+    tooltip.style.opacity = '0';
+    canvas.style.cursor   = 'default';
+    currentHover = false;
+    redraw(false);
+});
+
+let isHovering = false;
+let fadeAlpha  = 0;
+let fadeDir    = 1;
+let fadActive  = false;
+
+function fadeStep() {
+    if (isHovering) return;
+    fadeAlpha += fadeDir * 0.05;
+    if (fadeAlpha >= 1) {
+        fadeAlpha = 1; fadeDir = -1;
+    } else if (fadeAlpha <= 0) {
+        fadeAlpha = 0; fadeDir = 1; fadActive = false;
+        ctx.clearRect(0, 0, W, H);
+        ctx.drawImage(bgImg, 0, 0, W, H);
+        ctx.drawImage(ladyImg, 0, 0, W, H);
+        return;
+    }
+    ctx.clearRect(0, 0, W, H);
+    ctx.drawImage(bgImg, 0, 0, W, H);
+    ctx.drawImage(ladyImg, 0, 0, W, H);
+    ctx.save();
+    ctx.globalAlpha = fadeAlpha * 0.35;
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.drawImage(ladyImg, 0, 0, W, H);
+    ctx.restore();
+    requestAnimationFrame(fadeStep);
+}
+
+setInterval(() => {
+    if (isHovering || fadActive) return;
+    fadActive = true; fadeAlpha = 0; fadeDir = 1;
+    requestAnimationFrame(fadeStep);
+}, 3000);
+
+canvas.addEventListener('mouseenter', () => { isHovering = true; fadActive = false; });
+canvas.addEventListener('mouseleave', () => { isHovering = false; redraw(false); });
+
+// ── Popup principal ──
+let popupOpen = false;
+
+function openPopup() {
+    popupOpen = true;
+    isHovering = true;
+    fadActive  = false;
+    currentHover = false;
+    tooltip.style.opacity = '0';
+    canvas.style.cursor   = 'default';
+    document.getElementById('lady-overlay').classList.add('open');
+}
+function closePopup() {
+    popupOpen = false;
+    isHovering = false;
+    document.getElementById('lady-overlay').classList.remove('open');
+}
+document.getElementById('lady-overlay').addEventListener('click', (e) => {
+    if (e.target === document.getElementById('lady-overlay')) closePopup();
+});
+
+// ── Helpers dialog ──
+function formatText(text) {
+    return text.split('\n').map(line =>
+        line.startsWith('*') && line.endsWith('*')
+            ? `<em class="assets-dialog-action">${line.slice(1,-1)}</em>`
+            : `<span>${line}</span>`
+    ).join('<br>');
+}
+
+function appendText(html) {
+    const textEl = document.getElementById('dialog-text');
+    textEl.insertAdjacentHTML('beforeend', '<br>' + html);
+    textEl.scrollTop = textEl.scrollHeight;
+}
+
+function setActions(html) {
+    document.getElementById('dialog-actions').innerHTML = html;
+}
+
+// ── Dialog Lunara — pasi ──
+let dialogStep = 0;
+let dialogData = null;
+
+async function openDialog() {
+    closePopup();
+    document.getElementById('dialog-overlay').classList.add('open');
+    if (dialogStep > 0) return;
+
+    const resp = await fetch('/joc/petomania/api/lady');
+    const data = await resp.json();
+    if (!data.ok) return;
+
+    dialogData = data.dialog;
+    const textEl = document.getElementById('dialog-text');
+    textEl.innerHTML = formatText(dialogData.text);
+
+    if (dialogData.show_name_btn) {
+        setActions(`
+            <button class="assets-popup-btn assets-name-btn" onclick="stepName()">
+                <span class="assets-popup-btn-icon">👤</span>
+                <span>${dialogData.username}</span>
+            </button>
+        `);
+        dialogStep = 1;
+    } else {
+        setActions('');
+        dialogStep = 99;
+    }
+}
+
+async function stepName() {
+    const saveResp = await fetch('/joc/petomania/api/lady/name', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({name: dialogData.username})
+    });
+    const saveData = await saveResp.json();
+    if (!saveData.ok) return;
+
+    appendText(`<span class="assets-dialog-player">— Mă numesc ${saveData.name}.</span>`);
+
+    const petResp = await fetch('/joc/petomania/api/lady/pet');
+    const petData = await petResp.json();
+    if (!petData.ok) return;
+
+    appendText(formatText(petData.text));
+    setActions(`
+        <button class="assets-popup-btn" onclick="stepPetReply()">
+            <span class="assets-popup-btn-icon">🤔</span>
+            <span>De unde știi? Ești expertă în companioni?</span>
+        </button>
+    `);
+    dialogStep = 2;
+}
+
+function stepPetReply() {
+    appendText(`<span class="assets-dialog-player">— De unde știi? Ești expertă în companioni?</span>`);
+
+    const compText = [
+        '*Lunara Silvermist zâmbește amuzată și își aranjează o șuviță de păr argintiu după ureche.*',
+        'Expertă în companioni? Nu chiar. Însă am un Companicon.',
+        '*Scoate de sub tejghea un dispozitiv vechi, cu coperți din piele și însemne magice gravate pe margini.*',
+        'Ah, observ că nu porți unul asupra ta. Majoritatea aventurierilor își procură unul mai devreme sau mai târziu.',
+        '*Întoarce obiectul pe toate părțile și oftează ușor.*',
+        'Acesta este un model mai vechi. L-am înlocuit cu unul nou după ce a început să mă scoată din minți. Era mult prea criptic și nu afișa toți companionii descoperiți prin regat. Cu toate acestea, sunt convinsă că încă ascunde multe secrete.',
+        '*Îți întinde Companiconul peste tejghea.*',
+        'Știi ceva? Poate tu îi vei da de cap. Poftim, este al tău acum.'
+    ].join('\n');
+
+    appendText(formatText(compText));
+    setActions(`
+        <button class="assets-popup-btn assets-name-btn" onclick="stepThankYou()">
+            <span class="assets-popup-btn-icon">🙏</span>
+            <span>Mulțumesc frumos.</span>
+        </button>
+    `);
+    dialogStep = 3;
+}
+
+async function stepThankYou() {
+    appendText(`<span class="assets-dialog-player">— Mulțumesc frumos.</span>`);
+    setActions('');
+
+    await fetch('/joc/petomania/api/lady/companicon', {method: 'POST'});
+
+    const nav = document.querySelector('.pet-nav');
+    if (nav && !document.getElementById('nav-companicon')) {
+        const a = document.createElement('a');
+        a.href = '/joc/petomania/companicon';
+        a.id   = 'nav-companicon';
+        a.className = 'pet-nav-item';
+        a.innerHTML = '<span class="pet-nav-icon">📖</span><span>Companicon</span>';
+        nav.appendChild(a);
+    }
+
+    setTimeout(() => closeDialog(), 1500);
+    dialogStep = 99;
+}
+
+function closeDialog() {
+    document.getElementById('dialog-overlay').classList.remove('open');
+}
+document.getElementById('dialog-overlay').addEventListener('click', (e) => {
+    if (e.target === document.getElementById('dialog-overlay')) closeDialog();
+});
+
+// ── Tabel Naturi ──
+const NATURES_DATA = [
+    {icon:'🔥',name:'Foc'}, {icon:'💧',name:'Apă'}, {icon:'🌿',name:'Natură'},
+    {icon:'⛰️',name:'Pământ'}, {icon:'⚡',name:'Furtună'}, {icon:'❄️',name:'Gheață'},
+    {icon:'🌑',name:'Umbră'}, {icon:'💎',name:'Cristal'}, {icon:'⚙️',name:'Metal'},
+    {icon:'✨',name:'Lumină'}, {icon:'🐉',name:'Dragon'}
+];
+const NAT_MATRIX = [
+    [1.0,0.0,2.0,2.0,0.5,2.0,2.0,0.0,2.0,1.0,0.0],
+    [2.0,1.0,0.0,2.0,1.0,0.5,0.0,2.0,2.0,0.0,2.0],
+    [0.0,2.0,1.0,2.0,0.5,1.0,1.0,1.0,0.0,2.0,2.0],
+    [2.0,2.0,0.0,1.0,2.0,0.0,2.0,0.5,0.0,1.0,2.0],
+    [2.0,2.0,2.0,0.0,1.0,0.0,1.0,1.0,2.0,0.5,1.0],
+    [1.0,0.0,2.0,0.0,0.5,1.0,2.0,2.0,1.0,2.0,1.0],
+    [2.0,0.0,0.5,2.0,2.0,1.0,1.0,2.0,0.0,0.0,2.0],
+    [0.0,2.0,0.0,1.0,2.0,2.0,1.0,1.0,0.5,2.0,1.0],
+    [2.0,0.5,2.0,0.0,2.0,2.0,0.5,1.0,1.0,1.0,0.5],
+    [0.5,1.0,1.0,0.5,0.5,2.0,2.0,2.0,2.0,1.0,0.0],
+    [0.0,2.0,2.0,2.0,0.5,1.0,0.0,0.0,2.0,2.0,1.0]
+];
+
+function buildNatureTable() {
+    const t = document.getElementById('nature-mat');
+    if (t.innerHTML) return;
+    const cellStyle = 'width:32px;height:32px;text-align:center;border:1px solid rgba(255,255,255,0.1);font-size:11px;';
+    let html = '<tr><th style="' + cellStyle + 'background:rgba(255,255,255,0.05)">↘</th>';
+    NATURES_DATA.forEach(n => { html += `<th style="${cellStyle}background:rgba(255,255,255,0.05)" title="${n.name}">${n.icon}</th>`; });
+    html += '</tr>';
+    NAT_MATRIX.forEach((row, i) => {
+        html += `<tr><th style="${cellStyle}background:rgba(255,255,255,0.05)" title="${NATURES_DATA[i].name}">${NATURES_DATA[i].icon}</th>`;
+        row.forEach(val => {
+            let bg, label;
+            if (val === 2.0)      { bg = '#1D9E75'; label = '2×'; }
+            else if (val === 0.5) { bg = '#378ADD'; label = '½×'; }
+            else if (val === 0.0) { bg = '#444441'; label = '✕'; }
+            else                  { bg = 'transparent'; label = '1×'; }
+            html += `<td style="${cellStyle}background:${bg};color:${bg==='transparent'?'rgba(255,255,255,0.4)':'#fff'}">${label}</td>`;
+        });
+        html += '</tr>';
+    });
+    t.innerHTML = html;
+}
+
+function openNatureTable() {
+    buildNatureTable();
+    document.getElementById('nature-overlay').classList.add('open');
+}
+function closeNatureTable() {
+    document.getElementById('nature-overlay').classList.remove('open');
+}
+document.getElementById('nature-overlay').addEventListener('click', (e) => {
+    if (e.target === document.getElementById('nature-overlay')) closeNatureTable();
+});
+</script>
+{% endblock %}

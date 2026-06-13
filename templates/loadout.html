@@ -1,0 +1,399 @@
+{% extends "base_joc.html" %}
+{% block title %}Loadout{% endblock %}
+{% block content_class %}pet-content-scroll{% endblock %}
+
+{% block content %}
+<div class="loadout-page">
+
+  <!-- Header -->
+  <div class="loadout-header">
+    <a href="{{ url_for('acasa') }}" class="loadout-back">&#8592; Înapoi</a>
+    <h1 class="loadout-title">&#9878; Loadout</h1>
+    <span class="loadout-sub">Configurează-ți echipa de luptă</span>
+  </div>
+
+  <!-- Carousel bile -->
+  <div class="loadout-carousel-wrap">
+    <button class="loadout-arrow loadout-arrow-left" id="btn-prev" aria-label="anterior">&#8249;</button>
+
+    <div class="loadout-carousel" id="loadout-carousel">
+      {% for slot in slots %}
+      <div class="loadout-orb" data-slot="{{ slot.slot }}" data-index="{{ loop.index0 }}">
+        <div class="orb-stack">
+          <!-- Layer 1: Nexus Inferior -->
+          <div class="orb-layer orb-inferior" style="background-image:url('{{ nexus_inferior }}');background-size:contain;background-repeat:no-repeat;background-position:center;"></div>
+
+          <!-- Layer 2: Pet sau gol -->
+          <div class="orb-pet-wrap">
+            {% if not slot.empty %}
+            <img src="{{ slot.image_url }}" alt="{{ slot.name }}" class="orb-pet-img" crossorigin="anonymous">
+            {% else %}
+            <div class="orb-empty-icon">+</div>
+            {% endif %}
+          </div>
+
+          <!-- Layer 3: Nexus Superior -->
+          <div class="orb-layer orb-superior" style="background-image:url('{{ nexus_superior }}');background-size:contain;background-repeat:no-repeat;background-position:center;"></div>
+        </div>
+
+        <!-- Info sub bila -->
+        <div class="orb-info">
+          {% if not slot.empty %}
+          <div class="orb-name">{{ slot.name }}</div>
+          <div class="orb-sub">{{ slot.species }} · Nv.{{ slot.level }}</div>
+          <div class="orb-actions">
+            {% if slot.slot == 1 %}
+            <span class="orb-badge-active">Activ</span>
+            {% else %}
+            <button class="orb-btn orb-btn-change" data-slot="{{ slot.slot }}">Schimbă</button>
+            <button class="orb-btn orb-btn-remove" data-slot="{{ slot.slot }}">Scoate</button>
+            {% endif %}
+          </div>
+          {% else %}
+          <div class="orb-name orb-name-empty">Slot gol</div>
+          <div class="orb-actions">
+            <button class="orb-btn orb-btn-add" data-slot="{{ slot.slot }}">+ Adaugă</button>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <button class="loadout-arrow loadout-arrow-right" id="btn-next" aria-label="următor">&#8250;</button>
+  </div>
+
+  <!-- Indicator bile -->
+  <div class="loadout-dots" id="loadout-dots"></div>
+
+</div>
+
+<!-- OVERLAY selectie pet -->
+<div class="loadout-overlay" id="loadout-overlay">
+  <div class="loadout-picker" id="loadout-picker">
+    <div class="picker-header">
+      <span class="picker-title">Alege un companion</span>
+      <button class="picker-close" id="picker-close">&#215;</button>
+    </div>
+    <div class="picker-list" id="picker-list">
+      {% if menagerie %}
+        {% for m in menagerie %}
+        <div class="picker-item" data-men-id="{{ m.id }}">
+          <div class="picker-thumb">
+            <img src="{{ m.image_url }}" alt="{{ m.name }}">
+          </div>
+          <div class="picker-info">
+            <div class="picker-name">{{ m.name }}</div>
+            <div class="picker-sub">
+              {{ m.gender_icon }} {{ m.species }} · Nv.{{ m.level }}
+              {% if m.nat_data %} · {{ m.nat_data.icon }} {{ m.nat_data.name }}{% endif %}
+            </div>
+          </div>
+          <button class="picker-select-btn" data-men-id="{{ m.id }}">Selectează</button>
+        </div>
+        {% endfor %}
+      {% else %}
+        <div class="picker-empty">Nu ai alți companioni disponibili în menajerie.</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<style>
+/* ── PAGE ── */
+.loadout-page{display:flex;flex-direction:column;align-items:center;padding:24px 16px;min-height:calc(100vh - var(--footbar-h));gap:20px}
+
+.loadout-header{text-align:center;display:flex;flex-direction:column;align-items:center;gap:4px;width:100%;flex-shrink:0}
+.loadout-back{font-size:13px;color:var(--text-muted);text-decoration:none;align-self:flex-start;transition:color .15s}
+.loadout-back:hover{color:var(--gold)}
+.loadout-title{font-family:'Cinzel',serif;font-size:22px;color:var(--gold);font-weight:700;margin:0}
+.loadout-sub{font-size:12px;color:var(--text-muted)}
+
+/* ── CAROUSEL ── */
+.loadout-carousel-wrap{display:flex;align-items:center;gap:12px;width:100%;overflow:visible;}
+.loadout-carousel{
+    display:flex;align-items:center;justify-content:center;
+    gap:0;width:100%;position:relative;
+    height:min(60vh, 600px);overflow:visible;
+}
+
+/* ── ORB ── */
+.loadout-orb{
+    position:absolute;
+    display:flex;flex-direction:column;align-items:center;gap:10px;
+    transition:all .45s cubic-bezier(.32,.72,0,1);
+    transform-origin:center center;
+}
+
+/* Pozitii si scale per offset */
+.loadout-orb[data-pos="center"]{
+    transform:translateX(0) scale(1);
+    opacity:1;z-index:3;
+}
+.loadout-orb[data-pos="left"]{
+    transform:translateX(-72%) scale(0.72);
+    opacity:0.7;z-index:2;
+}
+.loadout-orb[data-pos="right"]{
+    transform:translateX(72%) scale(0.72);
+    opacity:0.7;z-index:2;
+}
+.loadout-orb[data-pos="far-left"]{
+    transform:translateX(-130%) scale(0.5);
+    opacity:0.35;z-index:1;
+}
+.loadout-orb[data-pos="far-right"]{
+    transform:translateX(130%) scale(0.5);
+    opacity:0.35;z-index:1;
+}
+.loadout-orb[data-pos="hidden"]{
+    transform:translateX(0) scale(0.3);
+    opacity:0;z-index:0;pointer-events:none;
+}
+
+/* ── ORB STACK ── */
+.orb-stack{
+    position:relative;
+    width:min(45vh, 45vw);
+    height:min(45vh, 45vw);
+    overflow:visible;
+}
+@media (min-width:1400px){
+    .orb-stack{ width:min(45vh, 30vw); height:min(45vh, 30vw); }
+}
+.orb-layer{
+    position:absolute;inset:0;
+    width:100%;height:100%;
+    object-fit:contain;
+}
+
+.orb-inferior{z-index:1}
+.orb-superior{z-index:3}
+
+.orb-pet-wrap{
+    position:absolute;inset:0;z-index:2;
+    display:flex;align-items:center;justify-content:center;
+}
+.orb-pet-img{
+    width:35%;height:35%;
+    object-fit:contain;
+    image-rendering:auto;
+    filter:drop-shadow(0 0 12px rgba(150,80,255,0.6));
+}
+.orb-empty-icon{
+    width:52%;height:52%;
+    display:flex;align-items:center;justify-content:center;
+    font-size:clamp(24px, 5vw, 48px);
+    color:rgba(255,255,255,0.15);
+    font-weight:300;
+}
+
+/* ── ORB INFO ── */
+.orb-info{text-align:center;display:flex;flex-direction:column;align-items:center;gap:5px}
+.orb-name{font-family:'Cinzel',serif;font-size:clamp(12px,1.8vw,18px);color:var(--gold);font-weight:700}
+.orb-name-empty{color:var(--text-muted);font-family:'Inter',sans-serif;font-weight:400}
+.orb-sub{font-size:clamp(10px,1.3vw,14px);color:var(--text-muted)}
+.orb-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:4px}
+.orb-badge-active{font-size:11px;padding:3px 10px;border-radius:100px;background:var(--gold-soft);border:1px solid rgba(201,168,76,.3);color:var(--gold);font-weight:600}
+.orb-btn{padding:7px 14px;border-radius:8px;border:1px solid var(--border-strong);background:var(--bg-elev);color:var(--text-primary);font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .15s}
+.orb-btn:hover{border-color:var(--gold-dim);color:var(--gold);background:var(--gold-soft)}
+.orb-btn-remove:hover{border-color:var(--danger);color:var(--danger);background:rgba(224,82,82,.08)}
+.orb-btn-add{border-color:rgba(201,168,76,.3);color:var(--gold);background:var(--gold-soft)}
+
+/* ── ARROWS ── */
+.loadout-arrow{
+    background:none;border:1px solid var(--border-strong);color:var(--text-muted);
+    width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+    font-size:22px;cursor:pointer;flex-shrink:0;transition:all .15s;z-index:10;
+}
+.loadout-arrow:hover{color:var(--gold);border-color:var(--gold-dim);background:var(--gold-soft)}
+
+/* ── DOTS ── */
+.loadout-dots{display:flex;gap:8px;justify-content:center;margin-top:40px;}
+.loadout-dot{width:8px;height:8px;border-radius:50%;background:var(--border-strong);cursor:pointer;transition:background .15s}
+.loadout-dot.active{background:var(--gold)}
+
+/* ── OVERLAY ── */
+.loadout-overlay{
+    display:none;position:fixed;inset:0;
+    background:rgba(0,0,0,.75);z-index:200;
+    align-items:center;justify-content:center;
+}
+.loadout-overlay.open{display:flex}
+
+.loadout-picker{
+    background:var(--bg-card);border:1px solid var(--border-strong);
+    border-radius:14px;width:min(480px,92vw);max-height:70vh;
+    display:flex;flex-direction:column;overflow:hidden;
+}
+.picker-header{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:14px 18px;border-bottom:1px solid var(--border);
+    background:var(--bg-elev);flex-shrink:0;
+}
+.picker-title{font-family:'Cinzel',serif;font-size:14px;color:var(--gold);font-weight:700}
+.picker-close{background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer;width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:6px}
+.picker-close:hover{color:var(--text-primary);background:var(--bg-elev2)}
+
+.picker-list{overflow-y:auto;display:flex;flex-direction:column;gap:0;flex:1}
+.picker-item{
+    display:flex;align-items:center;gap:12px;padding:12px 18px;
+    border-bottom:1px solid var(--border);transition:background .15s;cursor:pointer;
+}
+.picker-item:hover{background:var(--bg-elev)}
+.picker-thumb{width:52px;height:52px;border-radius:8px;background:var(--bg-elev2);border:1px solid var(--border-strong);overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.picker-thumb img{width:100%;height:100%;object-fit:contain}
+.picker-info{flex:1;min-width:0}
+.picker-name{font-size:13px;font-weight:600;color:var(--text-primary)}
+.picker-sub{font-size:11px;color:var(--text-muted);margin-top:2px}
+.picker-select-btn{
+    padding:7px 14px;border-radius:8px;border:1px solid rgba(201,168,76,.3);
+    background:var(--gold-soft);color:var(--gold);font-size:12px;font-weight:600;
+    cursor:pointer;font-family:inherit;flex-shrink:0;transition:background .15s;
+}
+.picker-select-btn:hover{background:rgba(201,168,76,.2)}
+.picker-empty{padding:32px;text-align:center;color:var(--text-muted);font-size:13px}
+
+.pet-content, .pet-content-scroll {
+    overflow: visible !important;
+}
+
+
+
+</style>
+
+<script>
+const SLOTS_DATA  = {{ slots | tojson }};
+const API_SET     = '/joc/petomania/api/loadout/set';
+const API_CLEAR   = '/joc/petomania/api/loadout/clear';
+
+let currentIndex  = 0;
+const TOTAL       = SLOTS_DATA.length;
+let activeSlot    = null; // slotul pentru care se deschide picker-ul
+
+// ── CAROUSEL ─────────────────────────────────
+
+function getPos(orbIndex) {
+    const diff = ((orbIndex - currentIndex) % TOTAL + TOTAL) % TOTAL;
+    if (diff === 0)                 return 'center';
+    if (diff === 1)                 return 'right';
+    if (diff === TOTAL - 1)         return 'far-left';  // va fi left daca TOTAL>3
+    if (diff === 2)                 return 'far-right';
+    if (diff === TOTAL - 2)         return 'far-left';
+    return 'hidden';
+}
+
+// Ajusteaza pentru 5 bile: offset 1=right, 2=far-right, 3=far-left, 4=left
+function getPos5(orbIndex) {
+    const diff = ((orbIndex - currentIndex) % 5 + 5) % 5;
+    if (diff === 0) return 'center';
+    if (diff === 1) return 'right';
+    if (diff === 2) return 'far-right';
+    if (diff === 3) return 'far-left';
+    if (diff === 4) return 'left';
+    return 'hidden';
+}
+
+function renderCarousel() {
+    const orbs = document.querySelectorAll('.loadout-orb');
+    orbs.forEach((orb, i) => {
+        const pos = getPos5(i);
+        orb.dataset.pos = pos;
+    });
+    // Dots
+    document.querySelectorAll('.loadout-dot').forEach((d, i) => {
+        d.classList.toggle('active', i === currentIndex);
+    });
+}
+
+function navigate(dir) {
+    currentIndex = ((currentIndex + dir) % TOTAL + TOTAL) % TOTAL;
+    renderCarousel();
+}
+
+document.getElementById('btn-prev').onclick = () => navigate(-1);
+document.getElementById('btn-next').onclick = () => navigate(1);
+
+// Dots
+const dotsEl = document.getElementById('loadout-dots');
+for (let i = 0; i < TOTAL; i++) {
+    const d = document.createElement('div');
+    d.className = 'loadout-dot' + (i === 0 ? ' active' : '');
+    d.onclick   = () => { currentIndex = i; renderCarousel(); };
+    dotsEl.appendChild(d);
+}
+
+// Swipe touch
+let touchStartX = 0;
+document.getElementById('loadout-carousel').addEventListener('touchstart', e => {
+    touchStartX = e.touches[0].clientX;
+});
+document.getElementById('loadout-carousel').addEventListener('touchend', e => {
+    const diff = touchStartX - e.changedTouches[0].clientX;
+    if (Math.abs(diff) > 40) navigate(diff > 0 ? 1 : -1);
+});
+
+// ── PICKER ───────────────────────────────────
+
+function openPicker(slot) {
+    activeSlot = slot;
+    document.getElementById('loadout-overlay').classList.add('open');
+}
+
+function closePicker() {
+    activeSlot = null;
+    document.getElementById('loadout-overlay').classList.remove('open');
+}
+
+document.getElementById('picker-close').onclick = closePicker;
+document.getElementById('loadout-overlay').addEventListener('click', e => {
+    if (e.target === document.getElementById('loadout-overlay')) closePicker();
+});
+
+// Butoane Adaugă / Schimbă
+document.querySelectorAll('.orb-btn-add, .orb-btn-change').forEach(btn => {
+    btn.addEventListener('click', e => {
+        e.stopPropagation();
+        openPicker(parseInt(btn.dataset.slot));
+    });
+});
+
+// Butoane Scoate
+document.querySelectorAll('.orb-btn-remove').forEach(btn => {
+    btn.addEventListener('click', async e => {
+        e.stopPropagation();
+        const slot = parseInt(btn.dataset.slot);
+        const res  = await postJSON(API_CLEAR, { slot });
+        if (res.ok) location.reload();
+    });
+});
+
+// Selectare pet din picker
+document.querySelectorAll('.picker-select-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+        const menId = parseInt(btn.dataset.menId);
+        if (!activeSlot) return;
+        const res = await postJSON(API_SET, { slot: activeSlot, men_id: menId });
+        if (res.ok) location.reload();
+    });
+});
+
+// ── UTILS ─────────────────────────────────────
+
+async function postJSON(url, body) {
+    try {
+        const r = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+        });
+        return await r.json();
+    } catch { return { ok: false }; }
+}
+
+// ── INIT ──────────────────────────────────────
+renderCarousel();
+</script>
+{% endblock %}

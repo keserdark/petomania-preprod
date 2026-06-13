@@ -1,0 +1,316 @@
+/* =====================================================
+   Shop — CSS specific
+   static_site/css/shop.css
+   ===================================================== */
+
+/* ===== OVERLAY ===== */
+
+.shop-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.75);
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+}
+.shop-overlay.open {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* ===== PANEL ===== */
+
+.shop-panel {
+    background: var(--bg-card);
+    border: 1px solid var(--border-strong);
+    border-radius: 16px;
+    width: clamp(320px, 60vw, 760px);
+    max-height: 88vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,215,0,0.08);
+    transform: translateY(12px);
+    transition: transform 0.2s ease;
+    overflow: hidden;
+}
+.shop-overlay.open .shop-panel {
+    transform: translateY(0);
+}
+
+/* ===== HEADER ===== */
+
+.shop-header {
+    padding: clamp(16px, 2vh, 28px) clamp(16px, 2vw, 28px) clamp(10px, 1.2vh, 18px);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    position: relative;
+}
+.shop-header-icon {
+    font-size: clamp(24px, 2.5vw, 36px);
+    flex-shrink: 0;
+}
+.shop-header-info {
+    flex: 1;
+    min-width: 0;
+}
+.shop-header-name {
+    font-family: 'Cinzel', serif;
+    font-size: clamp(14px, 1.4vw, 20px);
+    font-weight: 700;
+    color: var(--gold);
+}
+.shop-header-npc {
+    font-size: clamp(11px, 1vw, 14px);
+    color: var(--text-muted);
+    margin-top: 2px;
+}
+.shop-header-dacoins {
+    font-size: clamp(12px, 1.1vw, 15px);
+    color: var(--gold);
+    font-weight: 600;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.shop-close {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    width: clamp(24px, 2vw, 32px);
+    height: clamp(24px, 2vw, 32px);
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: clamp(11px, 1vw, 14px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.15s, border-color 0.15s;
+}
+.shop-close:hover { color: var(--danger); border-color: var(--danger); }
+
+/* ===== TABS ===== */
+
+.shop-tabs {
+    display: flex;
+    gap: 4px;
+    padding: clamp(8px, 1vh, 14px) clamp(16px, 2vw, 28px) 0;
+    border-bottom: 1px solid var(--border);
+}
+.shop-tab {
+    padding: 6px 14px;
+    border-radius: 8px 8px 0 0;
+    background: none;
+    border: 1px solid transparent;
+    border-bottom: none;
+    color: var(--text-muted);
+    font-family: 'Cinzel', serif;
+    font-size: clamp(10px, 0.95vw, 13px);
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+    position: relative;
+    bottom: -1px;
+}
+.shop-tab:hover { color: var(--text-primary); }
+.shop-tab.active {
+    background: var(--bg-card);
+    border-color: var(--border);
+    border-bottom-color: var(--bg-card);
+    color: var(--gold);
+}
+
+/* ===== GRID ITEME ===== */
+
+.shop-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: clamp(14px, 1.5vh, 24px) clamp(16px, 2vw, 28px);
+}
+
+.shop-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: clamp(8px, 0.9vw, 14px);
+}
+
+.shop-slot {
+    aspect-ratio: 3/4;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    cursor: pointer;
+    padding: 8px 6px;
+    transition: background 0.15s, border-color 0.15s;
+    text-align: center;
+    position: relative;
+}
+.shop-slot:hover {
+    background: var(--gold-soft);
+    border-color: var(--gold-dim);
+}
+.shop-slot.empty {
+    cursor: default;
+    opacity: 0.35;
+}
+.shop-slot.empty:hover {
+    background: var(--bg-elev);
+    border-color: var(--border);
+}
+.shop-slot-icon {
+    font-size: clamp(20px, 2vw, 30px);
+    line-height: 1;
+}
+.shop-slot-name {
+    font-size: clamp(9px, 0.8vw, 12px);
+    font-weight: 600;
+    color: var(--text-primary);
+    line-height: 1.2;
+    word-break: break-word;
+}
+.shop-slot-img {
+    width: clamp(28px, 2.8vw, 44px);
+    height: clamp(28px, 2.8vw, 44px);
+    object-fit: contain;
+    display: block;
+}
+.shop-slot-price {
+    font-size: clamp(9px, 0.75vw, 11px);
+    color: var(--gold);
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
+/* ===== POPUP CONFIRMARE ===== */
+
+.shop-confirm-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.82);
+    border-radius: 16px;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s;
+}
+.shop-confirm-overlay.open {
+    opacity: 1;
+    pointer-events: auto;
+}
+.shop-confirm-box {
+    background: var(--bg-card);
+    border: 1px solid var(--border-strong);
+    border-radius: 12px;
+    padding: clamp(18px, 2vh, 30px) clamp(20px, 2vw, 36px);
+    width: clamp(260px, 36vw, 400px);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    text-align: center;
+}
+.shop-confirm-icon {
+    font-size: clamp(28px, 3vw, 44px);
+}
+.shop-confirm-name {
+    font-family: 'Cinzel', serif;
+    font-size: clamp(13px, 1.2vw, 17px);
+    font-weight: 700;
+    color: var(--text-primary);
+}
+.shop-confirm-desc {
+    font-size: clamp(11px, 1vw, 14px);
+    color: var(--text-muted);
+    line-height: 1.5;
+}
+.shop-confirm-qty-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+.shop-qty-btn {
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s, border-color 0.15s;
+}
+.shop-qty-btn:hover { background: var(--gold-soft); border-color: var(--gold-dim); }
+.shop-qty-display {
+    font-family: 'Cinzel', serif;
+    font-size: clamp(13px, 1.2vw, 17px);
+    font-weight: 700;
+    color: var(--text-primary);
+    min-width: 32px;
+    text-align: center;
+}
+.shop-confirm-total {
+    font-size: clamp(12px, 1.1vw, 15px);
+    color: var(--gold);
+    font-weight: 700;
+}
+.shop-confirm-actions {
+    display: flex;
+    gap: 8px;
+}
+.shop-confirm-btn {
+    flex: 1;
+    padding: 9px 0;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    font-family: 'Cinzel', serif;
+    font-size: clamp(11px, 1vw, 14px);
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.shop-confirm-btn.buy {
+    background: var(--gold-soft);
+    border-color: var(--gold-dim);
+    color: var(--gold);
+}
+.shop-confirm-btn.buy:hover {
+    background: rgba(255,215,0,0.22);
+    border-color: var(--gold);
+}
+.shop-confirm-btn.cancel {
+    background: var(--bg-elev);
+    color: var(--text-muted);
+}
+.shop-confirm-btn.cancel:hover {
+    color: var(--danger);
+    border-color: var(--danger);
+}
+.shop-confirm-msg {
+    font-size: clamp(11px, 1vw, 13px);
+    min-height: 18px;
+    text-align: center;
+}
+.shop-confirm-msg.error { color: var(--danger); }
+.shop-confirm-msg.success { color: #4caf50; }

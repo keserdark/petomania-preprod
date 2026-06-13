@@ -1,0 +1,684 @@
+{% extends "base_joc.html" %}
+{% block content_class %}pet-content-city{% endblock %}
+{% block title %}Arenă — Luptă{% endblock %}
+
+
+
+{% block content %}
+<div id="battle-wrap">
+    <canvas id="battle-canvas"></canvas>
+
+    <!-- Scene -->
+    <div id="battle-scene">
+        <!-- Enemy -->
+        <div class="bc bc-enemy">
+            <div class="bc-player-wrap">
+                <div class="bc-info bc-info-top">
+                    <div class="bc-name-row">
+                        <span class="bc-name" id="npc-name">—</span>
+                        <span class="bc-level" id="npc-level">Nv.—</span>
+                    </div>
+                    <div class="bc-status" id="npc-status"></div>
+                    <div class="bc-hp-bg"><div class="bc-hp-fill" id="npc-hp-bar" style="width:100%"></div></div>
+                    <div class="bc-hp-txt" id="npc-hp-txt">—/—</div>
+                    <div style="text-align:right"><span class="bc-nature-badge" id="npc-nature"></span></div>
+                </div>
+                <div class="bc-ground-wrap">
+                    <img src="/static/padure/grasspatch.png" class="bc-ground-patch bc-ground-patch-enemy" alt="">
+                    <img id="npc-img" src="" alt="" class="bc-img bc-img-enemy">
+                </div>
+            </div>
+        </div>
+        <!-- Player -->
+        <div class="bc bc-player">
+            <div class="bc-player-wrap">
+                <div class="bc-info bc-info-top">
+                    <div class="bc-name-row">
+                        <span class="bc-name" id="player-name">—</span>
+                        <span class="bc-level" id="player-level">Nv.—</span>
+                    </div>
+                    <div class="bc-status" id="player-status"></div>
+                    <div class="bc-hp-bg"><div class="bc-hp-fill" id="player-hp-bar" style="width:100%"></div></div>
+                    <div class="bc-hp-txt" id="player-hp-txt">—/—</div>
+                    <div style="text-align:right"><span class="bc-nature-badge" id="player-nature"></span></div>
+                </div>
+                <div class="bc-ground-wrap">
+                    <img src="/static/padure/grasspatch.png" class="bc-ground-patch" alt="">
+                    <img id="player-img" src="" alt="" class="bc-img bc-img-player">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom panel -->
+    <div id="battle-bottom">
+        <div id="battle-log"><div class="blog-line">Se încarcă lupta...</div></div>
+        <div id="battle-controls">
+            <div id="battle-menu">
+                <button class="bmenu-btn fight" onclick="showMoves()">⚔️ Luptă</button>
+                <button class="bmenu-btn bag"   onclick="openBag()" id="btn-bag">🎒 Rucsac</button>
+                <button class="bmenu-btn pet"   onclick="openSwitchMenu()" id="btn-pet" style="display:none">🐾 Pet</button>
+                <button class="bmenu-btn run"   onclick="tryFlee()" id="btn-run">🏃 Fugi</button>
+            </div>
+            <div id="battle-moves-panel">
+                <button id="battle-moves-back" onclick="showMenu()">← Înapoi</button>
+                <div id="battle-moves"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Switch overlay -->
+    <div id="switch-overlay">
+        <div class="switch-box">
+            <div class="switch-title">⚔️ Trimite un companion</div>
+            <div class="switch-list" id="switch-list"></div>
+        </div>
+    </div>
+
+    <!-- Result overlay -->
+    <div id="result-overlay">
+        <div class="result-box">
+            <div class="result-icon" id="result-icon"></div>
+            <div class="result-title" id="result-title"></div>
+            <div class="result-reward" id="result-reward"></div>
+            <button class="result-btn" onclick="window.location='/joc/petomania/padure'">← Înapoi la Pădure</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/battle.css') }}">
+<style>
+
+.pet-footbar { display: none !important; }
+
+
+
+#battle-wrap {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+}
+.bc-ground-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+.bc-ground-patch {
+    width: clamp(120px, 18vw, 280px);
+    margin-top: -25%;
+    opacity: 0.9;
+    pointer-events: none;
+    z-index: 0;
+    flex-shrink: 0;
+}
+.bc-ground-patch-enemy {
+    transform: scaleX(-1);
+}
+.bc-img {
+    z-index: 1;
+    order: -1;
+}
+.bc-img-enemy {
+    transform: scaleX(-1);
+}
+.bmove-mp {
+    font-size: 10px;
+    opacity: 0.6;
+    margin-left: auto;
+    padding-left: 6px;
+}
+.bmove-empty {
+    opacity: 0.4;
+    cursor: not-allowed;
+    filter: grayscale(1);
+}
+.bmove-nature {
+    position: absolute;
+    top: 5px;
+    left: 5px;
+    font-size: 11px;
+    line-height: 1;
+    background: rgba(0,0,0,0.4);
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 4px;
+    padding: 2px 4px;
+}
+.bmove {
+    position: relative;
+}
+.bc-nature-badge {
+    font-size: 12px;
+    background: rgba(0,0,0,0.4);
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 4px;
+    padding: 1px 4px;
+    margin-left: 4px;
+}
+
+
+#battle-canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+</style>
+<script>
+const W = 1287, H = 816;
+const canvas = document.getElementById('battle-canvas');
+const ctx    = canvas.getContext('2d');
+canvas.width = W; canvas.height = H;
+
+const bgImg = new Image();
+bgImg.src   = '/static/padure/vanatoare.png';
+bgImg.onload = () => ctx.drawImage(bgImg, 0, 0, W, H);
+
+let battleData = { player: null, npc: null, bench: [], busy: false };
+
+const NATURE_ICONS = {
+    fire:'🔥', water:'💧', nature:'🌿', earth:'⛰️',
+    storm:'⚡', ice:'❄️', shadow:'🌑', crystal:'💎',
+    steel:'⚙️', light:'✨'
+};
+
+async function initBattle() {
+    // Verifica daca exista o lupta activa in sesiune
+    const stateResp = await fetch('/joc/petomania/api/vanatoare/state');
+    const stateData = await stateResp.json();
+
+    if (stateData.ok && stateData.active) {
+        battleData.player = stateData.player;
+        battleData.npc    = stateData.npc;
+        battleData.bench  = stateData.bench || [];
+        updateUI('player', stateData.player);
+        updateUI('npc', stateData.npc);
+        renderMoves(stateData.player.moveset);
+        clearLog();
+        addLog('⚔️ Lupta continuă...');
+        updatePetBtn();
+        return;
+    }
+
+    // Porneste lupta noua
+    const urlParams  = new URLSearchParams(window.location.search);
+    const battleSize = parseInt(urlParams.get('size') || '1');
+
+    const resp = await fetch('/joc/petomania/api/vanatoare/start', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({size: battleSize})
+    });
+    const data = await resp.json();
+    if (!data.ok) { addLog('❌ ' + data.error); return; }
+    battleData.player = data.player;
+    battleData.npc    = data.npc;
+    battleData.bench  = data.bench || [];
+    updateUI('player', data.player);
+    updateUI('npc', data.npc);
+    renderMoves(data.player.moveset);
+    clearLog();
+    addLog('⚔️ Lupta începe!');
+    updatePetBtn();
+}
+
+function updateUI(side, c) {
+    const pct = c.hp_max > 0 ? Math.round(c.hp_current / c.hp_max * 100) : 0;
+    const col = pct > 50 ? '#4caf7d' : pct > 25 ? '#e0a052' : '#e05252';
+    document.getElementById(`${side}-name`).textContent  = c.name;
+    document.getElementById(`${side}-level`).textContent = `Nv.${c.level}`;
+    document.getElementById(`${side}-hp-bar`).style.width      = pct + '%';
+    document.getElementById(`${side}-hp-bar`).style.background = col;
+    document.getElementById(`${side}-hp-txt`).textContent = `${c.hp_current} / ${c.hp_max}`;
+    document.getElementById(`${side}-status`).textContent = c.status ? `[${c.status.toUpperCase()}]` : '';
+    if (c.image_url) document.getElementById(`${side}-img`).src = c.image_url;
+    const natureBadge = document.getElementById(`${side}-nature`);
+    if (natureBadge) {
+        const icon = c.nature && NATURE_ICONS[c.nature] ? NATURE_ICONS[c.nature] : '';
+        natureBadge.textContent = icon;
+        natureBadge.style.display = icon ? '' : 'none';
+    }
+}
+
+function renderMoves(moveset) {
+    document.getElementById('battle-moves').innerHTML = moveset.map(m => {
+        const mp = m.mp !== undefined ? m.mp : (m.max_mp || 15);
+        const maxMp = m.max_mp || 15;
+        const disabled = mp <= 0;
+        const natIcon = m.nature && NATURE_ICONS[m.nature] ? `<span class="bmove-nature">${NATURE_ICONS[m.nature]}</span>` : '';
+        return `<button class="bmove${disabled ? ' bmove-empty' : ''}" onclick="doTurn('${m.key}')" ${disabled ? 'disabled' : ''}>
+            ${natIcon}
+            <span class="bmove-icon">${m.icon}</span>
+            <span class="bmove-name">${m.name}</span>
+            <span class="bmove-mp">${mp}/${maxMp}</span>
+        </button>`;
+    }).join('');
+}
+
+function addLog(msg) {
+    const el = document.getElementById('battle-log');
+    el.insertAdjacentHTML('beforeend', `<div class="blog-line">${msg}</div>`);
+    el.scrollTop = el.scrollHeight;
+}
+function clearLog() { document.getElementById('battle-log').innerHTML = ''; }
+
+function setBusy(v) {
+    battleData.busy = v;
+    document.querySelectorAll('.bmove').forEach(b => {
+        if (v) {
+            b.disabled = true;
+        } else {
+            // Reactivam doar daca are MP
+            const key = b.getAttribute('onclick').match(/'([^']+)'/)?.[1];
+            const mp = key && battleData.player && battleData.player.mp ? battleData.player.mp[key] : 1;
+            b.disabled = (mp !== undefined && mp <= 0);
+        }
+    });
+}
+
+async function doTurn(moveKey) {
+    if (battleData.busy) return;
+    // Verifica MP inainte de a trimite
+    if (battleData.player && battleData.player.mp && battleData.player.mp[moveKey] <= 0) return;
+    setBusy(true);
+    const resp = await fetch('/joc/petomania/api/vanatoare/turn', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({move_key: moveKey})
+    });
+    const data = await resp.json();
+    if (!data.ok) { addLog('❌ Eroare.'); setBusy(false); return; }
+    data.log.forEach(l => addLog(l));
+    updateUI('player', data.player);
+    updateUI('npc', data.npc);
+    if (data.bench !== undefined) { battleData.bench = data.bench; updatePetBtn(); }
+    // Actualizeaza MP din response
+    if (data.player && data.player.mp) {
+        if (!battleData.player) battleData.player = {};
+        battleData.player.mp = data.player.mp;
+        // Update mp pe fiecare buton
+        document.querySelectorAll('.bmove').forEach(btn => {
+            const key = btn.getAttribute('onclick').match(/'([^']+)'/)?.[1];
+            if (!key) return;
+            const mp = data.player.mp[key] !== undefined ? data.player.mp[key] : 15;
+            const mpEl = btn.querySelector('.bmove-mp');
+            const moveData = battleData.player.moveset ? battleData.player.moveset.find(m => m.key === key) : null;
+            const maxMp = moveData ? (moveData.max_mp || 15) : 15;
+            if (mpEl) mpEl.textContent = mp + '/' + maxMp;
+            btn.disabled = (mp <= 0);
+            btn.classList.toggle('bmove-empty', mp <= 0);
+        });
+    }
+    if (data.next_npc) {
+        battleData.npc = data.npc;
+        addLog('⚔️ Urmează următorul adversar!');
+        showMenu();
+        setBusy(false);
+    } else if (data.winner === 'player') {
+        showResult('player', data.reward, data.xp_results || []);
+    } else if (data.winner === 'npc') {
+        const bench = battleData.bench.filter(p => p.hp_current > 0);
+        if (bench.length > 0) openSwitch(bench);
+        else showResult('npc', 0);
+    } else {
+        showMenu();
+        setBusy(false);
+    }
+}
+
+function openSwitch(bench, voluntary = false) {
+    const list = document.getElementById('switch-list');
+    list.innerHTML = (!bench || bench.length === 0)
+        ? '<div class="switch-none">Nu mai ai companioi disponibili.</div>'
+        : bench.map(p => `
+            <div class="switch-pet" onclick="doSwitch(${p.id})">
+                <img src="${p.image_url}" alt="${p.name}">
+                <div class="switch-pet-info">
+                    <div class="switch-pet-name">${p.name} · Nv.${p.level}</div>
+                    <div class="switch-pet-hp">${p.hp_current} / ${p.hp_max} HP</div>
+                </div>
+            </div>`).join('');
+    document.getElementById('switch-overlay').classList.add('open');
+}
+
+async function doSwitch(petId) {
+    document.getElementById('switch-overlay').classList.remove('open');
+    const resp = await fetch('/joc/petomania/api/vanatoare/switch', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({pet_id: petId})
+    });
+    const data = await resp.json();
+    if (!data.ok) { addLog('❌ ' + data.error); setBusy(false); return; }
+    battleData.player = data.player;
+    if (data.bench !== undefined) battleData.bench = data.bench;
+    else battleData.bench = battleData.bench.filter(p => p.id !== petId);
+    updateUI('player', data.player);
+    renderMoves(data.player.moveset);
+    addLog(`🔄 ${data.player.name} intră în luptă!`);
+    updatePetBtn();
+    setBusy(false);
+}
+
+function showResult(winner, reward, xpResults) {
+    const el = document.getElementById('result-overlay');
+    el.classList.add('open');
+    // Verifica Daiana dupa orice rezultat de lupta
+    setTimeout(checkDaiana, 600);
+    if (winner === 'player') {
+        document.getElementById('result-icon').textContent  = '🏆';
+        document.getElementById('result-title').textContent = 'Victorie!';
+        let rewardText = reward > 0 ? `+${reward} ✦ Dacoins` : '';
+        if (xpResults && xpResults.length > 0) {
+            rewardText += '<br>' + xpResults.map(r =>
+                `⭐ ${r.name} +${r.xp} XP${r.leveled_up ? ' 🎉 Level Up!' : ''}`
+            ).join('<br>');
+        }
+        document.getElementById('result-reward').innerHTML = rewardText;
+    } else {
+        document.getElementById('result-icon').textContent  = '💀';
+        document.getElementById('result-title').textContent = 'Înfrângere...';
+        document.getElementById('result-reward').textContent = 'Antrenează-te și întoarce-te mai puternic.';
+    }
+}
+
+function showMenu() {
+    document.getElementById('battle-menu').style.display = 'grid';
+    document.getElementById('battle-moves-panel').classList.remove('open');
+}
+
+function showMoves() {
+    document.getElementById('battle-menu').style.display = 'none';
+    document.getElementById('battle-moves-panel').classList.add('open');
+}
+
+function updatePetBtn() {
+    const alive = battleData.bench ? battleData.bench.filter(p => p.hp_current > 0) : [];
+    document.getElementById('btn-pet').style.display = alive.length > 0 ? '' : 'none';
+}
+
+function openSwitchMenu() {
+    const bench = battleData.bench ? battleData.bench.filter(p => p.hp_current > 0) : [];
+    if (bench.length === 0) return;
+    openSwitch(bench, true);
+}
+
+function openBag() {
+    if (typeof rucsacToggle === 'function') {
+        rucsacToggle();
+        const checkClose = setInterval(async () => {
+            if (typeof rbOpen !== 'undefined' && !rbOpen) {
+                clearInterval(checkClose);
+                // Verifica daca a fost o captura
+                try {
+                    const stateResp = await fetch('/joc/petomania/api/vanatoare/state');
+                    const stateData = await stateResp.json();
+
+                    // Daca sesiunea de battle nu mai e activa -> captura reusita
+                    if (!stateData.active) {
+                        // Afiseaza ecran de captura reusita
+                        if (window._lastCaptureResult && window._lastCaptureResult.caught) {
+                            const r = window._lastCaptureResult;
+                            showVictory([],
+                                `🔮 ${r.name} a fost capturat!`,
+                                `<div style="margin-top:8px;font-size:13px;opacity:0.7">${r.species} · Nv.${r.level} · ${r.nature || 'fără natură'}</div>`
+                            );
+                        }
+                        return;
+                    }
+
+                    // Altfel sync HP normal
+                    if (stateData.ok && battleData.player) {
+                        battleData.player.hp_current = stateData.player.hp_current;
+                        updateUI('player', stateData.player);
+                        if (window._lastCaptureResult && !window._lastCaptureResult.caught) {
+                            addLog(`🔮 ${window._lastCaptureResult.msg}`);
+                            window._lastCaptureResult = null;
+                        } else {
+                            addLog('💊 HP actualizat.');
+                        }
+                    }
+                } catch(e) {}
+            }
+        }, 300);
+    }
+}
+
+// Interceptor pentru captură — rucsac_widget.js apeleaza /api/rucsac/use
+// Suprascriem fetch global ca sa detectam raspunsuri de captura
+// Interceptor fetch pentru captură
+const _origFetch = window.fetch;
+window.fetch = async function(...args) {
+    const resp = await _origFetch(...args);
+    const url  = typeof args[0] === 'string' ? args[0] : '';
+    if (url.includes('/api/rucsac/use')) {
+        const clone = resp.clone();
+        try {
+            const data = await clone.json();
+            if (data.caught !== undefined) {
+                if (data.caught) {
+                    if (typeof rucsacToggle === 'function' && typeof rbOpen !== 'undefined' && rbOpen) {
+                        rucsacToggle();
+                    }
+                    setTimeout(() => showCaptureSuccess(data), 400);
+                } else {
+                    addLog(`🔮 ${data.msg}`);
+                }
+            }
+        } catch(e) {}
+        return resp;
+    }
+    return resp;
+};
+
+function showCaptureSuccess(data) {
+    battleData.npc  = null;
+    battleData.busy = false;
+    const NICONS = {fire:'🔥',water:'💧',nature:'🌿',earth:'⛰️',storm:'⚡',ice:'❄️',shadow:'🌑',crystal:'💎',steel:'⚙️',light:'✨',dragon:'🐉'};
+    const natIcon    = data.nature && NICONS[data.nature] ? NICONS[data.nature] : '';
+    const genderIcon = data.gender === 'male' ? '♂️' : '♀️';
+    let overlay = document.getElementById('capture-overlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'capture-overlay';
+        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:500;display:flex;align-items:center;justify-content:center';
+        document.body.appendChild(overlay);
+    }
+    overlay.innerHTML = `
+        <div style="background:var(--bg-card,#1a1a2e);border:1px solid rgba(201,168,76,0.3);border-radius:16px;padding:36px 40px;text-align:center;max-width:380px;width:90vw;box-shadow:0 8px 40px rgba(0,0,0,0.6)">
+            <div style="font-size:48px;margin-bottom:12px">🔮</div>
+            <div style="font-family:'Cinzel',serif;font-size:22px;font-weight:700;color:var(--gold,#c9a84c);margin-bottom:8px">Capturat!</div>
+            <div style="font-size:16px;font-weight:600;margin-bottom:4px">${data.name}</div>
+            <div style="font-size:13px;opacity:0.6;margin-bottom:20px">${data.species} ${genderIcon} · Nv.${data.level} · ${natIcon} ${data.nature || ''}</div>
+            <button onclick="document.getElementById('capture-overlay').remove();window.location.href='/joc/petomania/menajerie';"
+                style="background:rgba(201,168,76,0.15);border:1px solid rgba(201,168,76,0.4);color:var(--gold,#c9a84c);font-family:'Cinzel',serif;font-size:14px;font-weight:600;padding:12px 28px;border-radius:10px;cursor:pointer;width:100%">
+                Mergi la Menajerie
+            </button>
+            <button onclick="document.getElementById('capture-overlay').remove();window.location.href='/joc/petomania/padure';"
+                style="background:transparent;border:1px solid rgba(255,255,255,0.15);color:rgba(255,255,255,0.6);font-size:13px;padding:10px 28px;border-radius:10px;cursor:pointer;width:100%;margin-top:8px">
+                ← Înapoi
+            </button>
+        </div>`;
+}
+
+// ── DAIANA SOLARIS ──
+let _daiana_data = null;
+
+async function checkDaiana() {
+    const resp = await fetch('/joc/petomania/api/daiana/check');
+    const data = await resp.json();
+    if (!data.trigger) return;
+    _daiana_data = data;
+    showDaianaOverlay();
+}
+
+function showDaianaOverlay() {
+    let overlay = document.getElementById('daiana-overlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'daiana-overlay';
+        overlay.style.cssText = 'position:fixed;inset:0;z-index:600;display:flex;align-items:center;justify-content:center;';
+        document.body.appendChild(overlay);
+    }
+    overlay.style.display = 'flex';
+    renderDaiana('intro');
+}
+
+function renderDaiana(step) {
+    let overlay = document.getElementById('daiana-overlay');
+    overlay.innerHTML = `
+        <div style="position:absolute;inset:0;background-size:100% 100%;background-image:url('/static/padure/DaianaSolaris.png');filter:brightness(0.35)"></div>
+        <div id="daiana-box" style="position:relative;z-index:1;background:var(--bg-card,#1a1a2e);border:1px solid rgba(220,50,50,0.3);border-radius:16px;padding:28px 32px;max-width:480px;width:90vw;box-shadow:0 8px 40px rgba(0,0,0,0.85);text-align:center">
+            <div style="font-family:'Cinzel',serif;font-size:18px;font-weight:700;color:var(--gold,#c9a84c);margin-bottom:4px">Daiana Solaris</div>
+            <div style="font-size:11px;color:var(--text-muted);margin-bottom:14px;font-style:italic">Prim Gardian al Regatului</div>
+            <div id="daiana-text" style="font-size:13px;line-height:1.8;color:var(--text-secondary);margin-bottom:20px"></div>
+            <div id="daiana-actions"></div>
+        </div>`;
+    _renderDaianaStep(step);
+}
+
+function _renderDaianaStep(step) {
+    const textEl = document.getElementById('daiana-text');
+    const actsEl = document.getElementById('daiana-actions');
+    if (!textEl) return;
+    actsEl.innerHTML = '';
+
+    const mk = (label, fn) => {
+        const b = document.createElement('button');
+        b.className = 'result-btn';
+        b.style.cssText = 'width:100%;margin-bottom:8px;';
+        b.textContent = label;
+        b.onclick = fn;
+        actsEl.appendChild(b);
+    };
+
+    if (step === 'intro') {
+        textEl.innerHTML = `Am auzit zvonuri că mai nou se vânează ilegal în pădurile Regatului.<br><br>
+            Spune, cetățene, ai consimțământul Regelui pentru a vâna pe teritoriile lui?`;
+        mk('Da, am concesiune de vânătoare.', () => _renderDaianaStep('are_concesiune'));
+        mk('Nu... nu știam că am nevoie.', () => _renderDaianaStep('nu_are'));
+    }
+    else if (step === 'are_concesiune') {
+        // Verifica daca chiar are concesiune
+        if (!_daiana_data.concesiunevanatoare) {
+            _renderDaianaStep('minte');
+            return;
+        }
+        textEl.innerHTML = `<em>*Daiana verifică rapid registrul mental al concesiunilor.*</em><br><br>
+            Bine. Apreciez că respecți legea — nu mulți o fac din proprie inițiativă.<br><br>
+            Continuă-ți vânătoarea și ai grijă de pădure.<br><br>
+            <span style="color:#4caf7d">Zi bună, cetățene.</span>`;
+        mk('Mulțumesc. O zi bună și ție.', () => {
+            document.getElementById('daiana-overlay').style.display = 'none';
+        });
+    }
+    else if (step === 'minte') {
+        textEl.innerHTML = `<em>*Daiana te privește fix câteva secunde, cu o expresie de piatră.*</em><br><br>
+            Interesant. Am verificat registrele și numele tău nu apare în nicio concesiune activă.<br><br>
+            Minți unui Gardian al Regatului. Asta agravează situația considerabil.<br><br>
+            ${_daiana_data.daiana_warned === 0
+                ? `De data aceasta, îți acord un avertisment — dar să nu mai încerc răbdarea mea.<br><br>
+                   Du-te la Castel și obține o concesiune legitimă.`
+                : `Nu e prima dată când te văd fără concesiune. Va fi <span style="color:#e05252">1.000 Dacoins</span> amendă.`
+            }`;
+        if (_daiana_data.daiana_warned === 0) {
+            mk('Îmi pare rău. Mă duc imediat.', () => applyDaianaAvertisment());
+        } else {
+            mk('Plătesc amenda.', () => applyDaianaAmenda());
+        }
+    }
+    else if (step === 'nu_are') {
+        if (_daiana_data.daiana_warned === 0) {
+            textEl.innerHTML = `<em>*Daiana te privește cu o privire calculată, fără ostilitate, dar fără blândețe.*</em><br><br>
+                Înțeleg. De data aceasta, accept că nu ai știut.<br><br>
+                Dar acum știi: pădurile aparțin Coroanei, iar vânătoarea fără concesiune este ilegală.<br><br>
+                Du-te la Castel și cere-i lui Aldric Solvar o concesiune. Până atunci, te sfătuiesc să te limitezi la plimbări.<br><br>
+                <em>Data viitoare nu voi mai fi atât de îngăduitoare.</em>`;
+            mk('Înțeleg. Mulțumesc pentru avertisment.', () => applyDaianaAvertisment());
+        } else {
+            textEl.innerHTML = `<em>*Daiana te recunoaște imediat și un zâmbet rece îi încrețește colțul gurii.*</em><br><br>
+                Iar tu... te-am mai văzut eu pe-aci.<br><br>
+                Ți-am spus și data trecută să îți faci rost de un consimțământ, nu?<br><br>
+                Va fi <span style="color:#e05252">1.000 Dacoins</span> amendă.`;
+            mk('Plătesc amenda.', () => applyDaianaAmenda());
+        }
+    }
+    else if (step === 'amenda_platita') {
+        const a = _daiana_data._amenda;
+        const r = _daiana_data._ramas;
+        textEl.innerHTML = `${a === 1000
+            ? `<em>*Daiana înregistrează plata.*</em><br><br>Bine. Cei 1.000 de Dacoins au fost reținuți.`
+            : `Hmm, pari amărât și nu ai nici măcar bani de amendă.<br><br><em>Voi lua cât ai la tine — <span style="color:#e05252">${a} Dacoins</span>.</em>`
+        }<br><br>
+        Du-te la Castel și rezolvă situația.<br>
+        <span style="opacity:0.6;font-size:12px">Sold rămas: ${r} Dacoins</span>`;
+        mk('Da, mă duc imediat.', () => {
+            document.getElementById('daiana-overlay').style.display = 'none';
+        });
+    }
+}
+
+async function applyDaianaAvertisment() {
+    await fetch('/joc/petomania/api/daiana/amenda', {method:'POST'});
+    document.getElementById('daiana-overlay').style.display = 'none';
+}
+
+async function applyDaianaAmenda() {
+    const resp = await fetch('/joc/petomania/api/daiana/amenda', {method:'POST'});
+    const data = await resp.json();
+    _daiana_data._amenda = data.amenda;
+    _daiana_data._ramas  = data.balance_ramas;
+    _renderDaianaStep('amenda_platita');
+}
+
+async function tryFlee() {
+    const playerLvl = battleData.player ? battleData.player.level : 1;
+    const npcLvl    = battleData.npc    ? battleData.npc.level    : 1;
+    const diff      = npcLvl - playerLvl;
+    const chance    = Math.max(0.1, 0.8 - diff * 0.1);
+    if (Math.random() < chance) {
+        await fetch('/joc/petomania/api/vanatoare/flee', {method:'POST'});
+        const daianaResp = await fetch('/joc/petomania/api/daiana/check');
+        const daianaData = await daianaResp.json();
+        if (daianaData.trigger) {
+            _daiana_data = daianaData;
+            showDaianaOverlay();
+        } else {
+            window.location = '/joc/petomania/padure';
+        }
+    } else {
+        addLog('❌ Nu ai reușit să fugi!');
+        setBusy(true);
+        const resp = await fetch('/joc/petomania/api/vanatoare/turn', {
+            method: 'POST', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({move_key: 'scratch'})
+        });
+        const data = await resp.json();
+        if (data.ok) {
+            data.log.forEach(l => addLog(l));
+            updateUI('player', data.player);
+            updateUI('npc', data.npc);
+            if (data.winner) showResult(data.winner === 'player' ? 'player' : 'npc', data.reward);
+            else setBusy(false);
+        }
+    }
+}
+
+initBattle();
+
+// La parasirea paginii, abandoneaza lupta din sesiune
+let battleFinished = false;
+window.addEventListener('pagehide', () => {
+    if (!battleFinished && battleData.player) {
+        navigator.sendBeacon('/joc/petomania/api/vanatoare/abandon');
+    }
+});
+
+// Marcheaza ca terminata cand result e afisat
+const _origShowResult = showResult;
+showResult = function(winner, reward, xpResults) {
+    battleFinished = true;
+    _origShowResult(winner, reward, xpResults);
+};
+</script>
+{% endblock %}

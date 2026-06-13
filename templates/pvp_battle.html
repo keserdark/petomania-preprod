@@ -1,0 +1,454 @@
+{% extends "base_joc.html" %}
+{% block content_class %}pet-content-city{% endblock %}
+{% block title %}PvP — Luptă{% endblock %}
+
+{% block content %}
+<div id="battle-wrap">
+    <canvas id="battle-canvas"></canvas>
+
+    <!-- Scene -->
+    <div id="battle-scene">
+        <!-- Adversar (dreapta) -->
+        <div class="bc bc-enemy">
+            <div class="bc-player-wrap">
+                <div class="bc-info bc-info-top">
+                    <div class="bc-name-row">
+                        <span class="bc-name" id="npc-name">—</span>
+                        <span class="bc-level" id="npc-level">Nv.—</span>
+                    </div>
+                    <div class="bc-status" id="npc-status"></div>
+                    <div class="bc-hp-bg"><div class="bc-hp-fill" id="npc-hp-bar" style="width:100%"></div></div>
+                    <div class="bc-hp-txt" id="npc-hp-txt">—/—</div>
+                    <div style="text-align:right"><span class="bc-nature-badge" id="npc-nature"></span></div>
+                </div>
+                <div class="bc-ground-wrap">
+                    <img src="/static/arena/groundpatch.png" class="bc-ground-patch bc-ground-patch-enemy" alt="">
+                    <img id="npc-img" src="" alt="" class="bc-img bc-img-enemy">
+                </div>
+            </div>
+        </div>
+        <!-- Player (stanga) -->
+        <div class="bc bc-player">
+            <div class="bc-player-wrap">
+                <div class="bc-info bc-info-top">
+                    <div class="bc-name-row">
+                        <span class="bc-name" id="player-name">—</span>
+                        <span class="bc-level" id="player-level">Nv.—</span>
+                    </div>
+                    <div class="bc-status" id="player-status"></div>
+                    <div class="bc-hp-bg"><div class="bc-hp-fill" id="player-hp-bar" style="width:100%"></div></div>
+                    <div class="bc-hp-txt" id="player-hp-txt">—/—</div>
+                    <div style="text-align:right"><span class="bc-nature-badge" id="player-nature"></span></div>
+                </div>
+                <div class="bc-ground-wrap">
+                    <img src="/static/arena/groundpatch.png" class="bc-ground-patch" alt="">
+                    <img id="player-img" src="" alt="" class="bc-img bc-img-player">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom panel -->
+    <div id="battle-bottom">
+        <!-- Timer tur -->
+        <div id="pvp-timer-bar">
+            <div id="pvp-timer-fill" style="width:100%"></div>
+        </div>
+        <div id="pvp-timer-label">⏱ <span id="pvp-timer-sec">30</span>s</div>
+
+        <div id="battle-log"><div class="blog-line">Se încarcă lupta PvP...</div></div>
+        <div id="battle-controls">
+            <div id="battle-menu">
+                <button class="bmenu-btn fight" onclick="showMoves()">⚔️ Luptă</button>
+                <button class="bmenu-btn run"   onclick="tryAbandon()" id="btn-run">🏳️ Abandonează</button>
+            </div>
+            <div id="battle-moves-panel">
+                <button id="battle-moves-back" onclick="showMenu()">← Înapoi</button>
+                <div id="battle-moves"></div>
+            </div>
+        </div>
+
+        <!-- Waiting overlay — dupa ce ai ales, astepti adversarul -->
+        <div id="pvp-waiting-overlay">
+            <div class="pvp-waiting-dots">
+                <div></div><div></div><div></div>
+            </div>
+            <div style="font-size:13px;color:var(--text-muted);margin-top:8px">
+                Aștepți mutarea adversarului...
+            </div>
+        </div>
+    </div>
+
+    <!-- Result overlay -->
+    <div id="result-overlay">
+        <div class="result-box">
+            <div class="result-icon" id="result-icon"></div>
+            <div class="result-title" id="result-title"></div>
+            <div class="result-reward" id="result-reward"></div>
+            <button class="result-btn" onclick="window.location='/joc/petomania/arena'">← Înapoi la Arenă</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/battle.css') }}">
+<style>
+.pet-footbar { display: none !important; }
+
+#battle-wrap {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+}
+.bc-ground-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+.bc-ground-patch {
+    width: clamp(120px, 18vw, 280px);
+    margin-top: -25%;
+    opacity: 0.9;
+    pointer-events: none;
+    z-index: 0;
+    flex-shrink: 0;
+}
+.bc-ground-patch-enemy { transform: scaleX(-1); }
+.bc-img { z-index: 1; order: -1; }
+.bc-img-enemy { transform: scaleX(-1); }
+.bmove-mp { font-size:10px; opacity:0.6; margin-left:auto; padding-left:6px; }
+.bmove-empty { opacity:0.4; cursor:not-allowed; filter:grayscale(1); }
+.bmove-nature { position:absolute; top:5px; left:5px; font-size:11px; line-height:1;
+    background:rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.2);
+    border-radius:4px; padding:2px 4px; }
+.bmove { position: relative; }
+.bc-nature-badge { font-size:12px; background:rgba(0,0,0,0.4);
+    border:1px solid rgba(255,255,255,0.2); border-radius:4px; padding:1px 4px; margin-left:4px; }
+#battle-canvas { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+
+/* PvP Timer */
+#pvp-timer-bar {
+    height: 4px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 2px;
+    margin: 0 8px 4px 8px;
+    overflow: hidden;
+}
+#pvp-timer-fill {
+    height: 100%;
+    background: var(--gold, #c9a84c);
+    transition: width 1s linear, background 1s;
+}
+#pvp-timer-label {
+    text-align: center;
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+}
+
+/* Waiting overlay */
+#pvp-waiting-overlay {
+    display: none;
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    background: rgba(0,0,0,0.7);
+    padding: 20px;
+    text-align: center;
+    flex-direction: column;
+    align-items: center;
+    z-index: 50;
+}
+#pvp-waiting-overlay.show {
+    display: flex;
+}
+.pvp-waiting-dots {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+}
+.pvp-waiting-dots div {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--gold, #c9a84c);
+    animation: qdot 1.2s ease-in-out infinite;
+}
+.pvp-waiting-dots div:nth-child(2) { animation-delay: 0.2s; }
+.pvp-waiting-dots div:nth-child(3) { animation-delay: 0.4s; }
+@keyframes qdot {
+    0%, 100% { opacity: 0.2; transform: scale(0.8); }
+    50%       { opacity: 1;   transform: scale(1.2); }
+}
+</style>
+
+<script>
+const MATCH_ID = {{ match_id }};
+const API      = '/joc/petomania/api/pvp';
+const NATURE_ICONS = {
+    fire:'🔥', water:'💧', nature:'🌿', earth:'⛰️',
+    storm:'⚡', ice:'❄️', shadow:'🌑', crystal:'💎',
+    steel:'⚙️', light:'✨', dragon:'🐉'
+};
+
+const canvas = document.getElementById('battle-canvas');
+const ctx    = canvas.getContext('2d');
+canvas.width = 1287; canvas.height = 816;
+const bgImg  = new Image();
+bgImg.src    = '/static/arena/battle.png';
+bgImg.onload = () => ctx.drawImage(bgImg, 0, 0, 1287, 816);
+
+let pvpState    = null;
+let pollHandle  = null;
+let battleDone  = false;
+let lastLogLen  = 0;
+let timerHandle = null;
+
+// ── INIT ──────────────────────────────────────────────
+async function initPvp() {
+    const resp = await fetch(`${API}/match/${MATCH_ID}/poll`);
+    const data = await resp.json();
+    if (!data.ok) { addLog('❌ ' + (data.error || 'Eroare')); return; }
+
+    pvpState = data.session;
+    renderSession(pvpState);
+    renderMoves(pvpState.moveset_data, pvpState.me.mp);
+    addLog('⚔️ Lupta PvP a început!');
+
+    if (pvpState.state !== 'finished') {
+        pollHandle = setInterval(pollMatch, 2000);
+        startTimerUI(pvpState.time_left);
+    }
+}
+
+// ── POLL ─────────────────────────────────────────────
+async function pollMatch() {
+    try {
+        const resp = await fetch(`${API}/match/${MATCH_ID}/poll`);
+        const data = await resp.json();
+        if (!data.ok) return;
+
+        const s = data.session;
+
+        // Log nou
+        if (s.log && s.log.length > lastLogLen) {
+            s.log.slice(lastLogLen).forEach(l => addLog(l));
+            lastLogLen = s.log.length;
+        }
+
+        renderSession(s);
+
+        // Timer
+        startTimerUI(s.time_left);
+
+        // Waiting overlay
+        if (s.i_chose && s.state === 'choosing') {
+            document.getElementById('pvp-waiting-overlay').classList.add('show');
+        } else {
+            document.getElementById('pvp-waiting-overlay').classList.remove('show');
+        }
+
+        // Daca s-a rezolvat turul — re-render moves, dar nu ascunde panoul daca e deschis
+        if (!s.i_chose && s.state === 'choosing') {
+            renderMoves(s.moveset_data, s.me.mp);
+            const panelOpen = document.getElementById('battle-moves-panel').classList.contains('open');
+            if (!panelOpen) showMenu();
+        }
+
+        if (s.state === 'finished') {
+            clearInterval(pollHandle);
+            clearInterval(timerHandle);
+            pvpState = s;
+            battleDone = true;
+            await grantReward(s);
+        }
+
+        pvpState = s;
+    } catch(e) {}
+}
+
+// ── SUBMIT MOVE ──────────────────────────────────────
+async function submitMove(moveKey) {
+    if (pvpState && pvpState.i_chose) return; // deja ales
+    setBusy(true);
+
+    const resp = await fetch(`${API}/match/${MATCH_ID}/move`, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({move_key: moveKey})
+    });
+    const data = await resp.json();
+    if (!data.ok) { addLog('❌ ' + data.error); setBusy(false); return; }
+
+    pvpState = data.session;
+
+    if (pvpState.log && pvpState.log.length > lastLogLen) {
+        pvpState.log.slice(lastLogLen).forEach(l => addLog(l));
+        lastLogLen = pvpState.log.length;
+    }
+
+    renderSession(pvpState);
+    showMenu();
+    document.getElementById('pvp-waiting-overlay').classList.add('show');
+    setBusy(false);
+
+    if (pvpState.state === 'finished') {
+        clearInterval(pollHandle);
+        clearInterval(timerHandle);
+        battleDone = true;
+        await grantReward(pvpState);
+    }
+}
+
+// ── ABANDON ──────────────────────────────────────────
+async function tryAbandon() {
+    if (!confirm('Abandonezi lupta? Adversarul câștigă automat.')) return;
+    clearInterval(pollHandle);
+    clearInterval(timerHandle);
+    battleDone = true;
+    await fetch(`${API}/match/${MATCH_ID}/abandon`, {method:'POST'});
+    showResult('npc', 0);
+}
+
+// ── REWARD ───────────────────────────────────────────
+async function grantReward(s) {
+    const resp = await fetch(`${API}/match/${MATCH_ID}/reward`, {method:'POST'});
+    const data = await resp.json();
+    const won  = s.winner && s.winner != 'draw' && s.winner == s.me_id;
+    // Determina winner vizual
+    const meWon = (s.winner !== 'draw') && (
+        pvpState.me.hp_current > 0 && pvpState.opponent.hp_current <= 0
+    );
+    showResult(meWon ? 'player' : 'npc', data.dacoins || 0);
+}
+
+// ── UI HELPERS ───────────────────────────────────────
+function renderSession(s) {
+    updateUI('player', s.me);
+    updateUI('npc', s.opponent);
+}
+
+function updateUI(side, c) {
+    const prefix = side === 'player' ? 'player' : 'npc';
+    const nameEl  = document.getElementById(prefix + '-name');
+    const levelEl = document.getElementById(prefix + '-level');
+    const hpBar   = document.getElementById(prefix + '-hp-bar');
+    const hpTxt   = document.getElementById(prefix + '-hp-txt');
+    const imgEl   = document.getElementById(prefix + '-img');
+    const natEl   = document.getElementById(prefix + '-nature');
+    const statEl  = document.getElementById(prefix + '-status');
+
+    if (!c) return;
+    if (nameEl)  nameEl.textContent  = c.name  || '—';
+    if (levelEl) levelEl.textContent = 'Nv.' + (c.level || '—');
+    if (hpTxt)   hpTxt.textContent   = (c.hp_current || 0) + '/' + (c.hp_max || 0);
+    if (hpBar) {
+        const pct = c.hp_max ? Math.round(c.hp_current / c.hp_max * 100) : 0;
+        hpBar.style.width = pct + '%';
+        hpBar.style.background = pct > 50 ? '#4caf7d' : pct > 25 ? '#f0c060' : '#f04747';
+    }
+    if (imgEl && c.image_url) imgEl.src = c.image_url;
+    if (natEl) {
+        const nat = Array.isArray(c.nature) ? c.nature[0] : c.nature;
+        natEl.textContent = nat ? (NATURE_ICONS[nat] || '') + ' ' + nat : '';
+    }
+    if (statEl) {
+        statEl.textContent = c.status ? `[${c.status}]` : '';
+        statEl.style.color = '#f0c060';
+    }
+}
+
+function renderMoves(movesetData, mp) {
+    const container = document.getElementById('battle-moves');
+    container.innerHTML = '';
+    (movesetData || []).forEach(m => {
+        const mpVal = mp ? (mp[m.key] ?? '?') : '?';
+        const empty = mpVal === 0;
+        const btn = document.createElement('button');
+        btn.className = 'bmove' + (empty ? ' bmove-empty' : '');
+        const natIcon = NATURE_ICONS[m.nature] || '';
+        btn.innerHTML = `
+            ${natIcon ? `<span class="bmove-nature">${natIcon}</span>` : ''}
+            <span>${m.icon} ${m.name}</span>
+            <span class="bmove-mp">MP: ${mpVal}</span>
+        `;
+        if (!empty) btn.onclick = () => submitMove(m.key);
+        else btn.disabled = true;
+        container.appendChild(btn);
+    });
+}
+
+function startTimerUI(seconds) {
+    clearInterval(timerHandle);
+    let t = seconds;
+    const fillEl = document.getElementById('pvp-timer-fill');
+    const secEl  = document.getElementById('pvp-timer-sec');
+    const update = () => {
+        if (t < 0) t = 0;
+        const pct = Math.round(t / 30 * 100);
+        fillEl.style.width = pct + '%';
+        fillEl.style.background = t > 15 ? '#4caf7d' : t > 8 ? '#f0c060' : '#f04747';
+        secEl.textContent = t;
+        t--;
+    };
+    update();
+    timerHandle = setInterval(update, 1000);
+}
+
+function addLog(msg) {
+    const log = document.getElementById('battle-log');
+    const div = document.createElement('div');
+    div.className = 'blog-line';
+    div.textContent = msg;
+    log.appendChild(div);
+    log.scrollTop = log.scrollHeight;
+}
+
+function clearLog() {
+    document.getElementById('battle-log').innerHTML = '';
+    lastLogLen = 0;
+}
+
+function setBusy(b) {
+    document.querySelectorAll('.bmove, .bmenu-btn').forEach(el => el.disabled = b);
+}
+
+function showMenu() {
+    document.getElementById('battle-menu').style.display = 'grid';
+    document.getElementById('battle-moves-panel').classList.remove('open');
+}
+
+function showMoves() {
+    if (!pvpState || pvpState.state === 'finished') return;
+    if (pvpState.i_chose) {
+        document.getElementById('pvp-waiting-overlay').classList.add('show');
+        return;
+    }
+    document.getElementById('battle-menu').style.display = 'none';
+    document.getElementById('battle-moves-panel').classList.add('open');
+}
+
+function showResult(winner, reward) {
+    const el = document.getElementById('result-overlay');
+    el.classList.add('open');
+    if (winner === 'player') {
+        document.getElementById('result-icon').textContent  = '🏆';
+        document.getElementById('result-title').textContent = 'Victorie!';
+        document.getElementById('result-reward').textContent = reward > 0 ? `+${reward} ✦ Dacoins` : '';
+    } else {
+        document.getElementById('result-icon').textContent  = '💀';
+        document.getElementById('result-title').textContent = 'Înfrângere...';
+        document.getElementById('result-reward').textContent = 'Antrenează-te și întoarce-te mai puternic.';
+    }
+}
+
+// Abandon la inchidere pagina
+window.addEventListener('pagehide', () => {
+    if (!battleDone) {
+        navigator.sendBeacon(`${API}/match/${MATCH_ID}/abandon`);
+    }
+});
+
+initPvp();
+</script>
+{% endblock %}

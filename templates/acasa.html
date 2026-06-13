@@ -1,0 +1,455 @@
+{% extends "base_joc.html" %}
+{% block title %}Acasă{% endblock %}
+
+{% block content %}
+
+{% if not pet %}
+<div class="pet-empty-state">
+    <div class="pet-empty-icon">🐾</div>
+    <h2>Nu ai niciun animal activ</h2>
+    <p>Folosește comanda <code>/petadopta</code> pe Discord pentru a adopta primul tău animal.</p>
+    <a href="https://discord.com/invite/sF9wge6XAN" target="_blank" class="btn btn-discord">
+        Mergi pe Discord
+    </a>
+</div>
+
+{% else %}
+
+<!-- CAMERA fullscreen -->
+<div class="pet-room-full">
+
+    <!-- Layer 1: Perete -->
+    <img src="{{ room_urls.wall }}" alt="" class="room-layer room-wall">
+    <!-- Layer 2: Pardoseala -->
+    <img src="{{ room_urls.floor }}" alt="" class="room-layer room-floor">
+    <!-- Layer 3: Semineu -->
+    <img src="{{ room_urls.chimney }}" alt="" class="room-layer room-chimney">
+
+    <!-- Layer 4: Obiecte camera -->
+	<!-- Layer 4: Obiecte camera -->
+{% for obj in room_objects %}
+{% if obj.width == 100 %}
+<img src="{{ obj.url }}" alt="{{ obj.name }}"
+    class="room-layer"
+    style="z-index:{{ obj.z_index }};pointer-events:none;">
+{% else %}
+<img src="{{ obj.url }}" alt="{{ obj.name }}"
+    class="{% if obj.clickable %}room-object-clickable{% endif %}"
+    style="position:absolute;left:{{ obj.pos_x }}%;bottom:{{ obj.pos_y }}%;width:{{ obj.width }}%;z-index:{{ obj.z_index }};pointer-events:{% if obj.clickable %}auto{% else %}none{% endif %};"
+    {% if obj.clickable %}data-action="{{ obj.action }}"{% endif %}>
+{% endif %}
+{% endfor %}
+
+    <!-- Layer 5: Pet -->
+    <div class="room-pet-wrap pet-stage-{{ pet.form }}" id="room-pet-wrap" style="z-index:20;">
+        <img src="{{ pet.image_url }}" alt="{{ pet.name }}"
+             class="room-pet-img" id="room-pet-img">
+		{% if pet.sleeping or pet.sleeping == 1 %}
+		<div class="room-pet-zzz">💤</div>
+		{% endif %}
+    </div>
+
+    <!-- Bubble stare -->
+    <div class="room-state-bubble" id="room-state-bubble">
+        <span id="room-state-icon">{{ pet.state_label[0] }}</span>
+        <span id="room-state-text">{{ pet.state_label[1] }}</span>
+    </div>
+
+    <!-- Buton Ingrijeste -->
+    <button class="room-care-btn" id="btn-ingrijeste" onclick="togglePanel()">
+        🐾 Îngrijește
+    </button>
+
+</div>
+
+<!-- PANEL INGRIJIRE — drawer lateral -->
+<div class="care-panel" id="care-panel">
+    <div class="care-panel-inner">
+
+        <div class="care-panel-header">
+            <div>
+                <h2 class="pet-panel-name">{{ pet.gender_icon }} {{ pet.name }}</h2>
+                <div class="pet-badges">
+                    <span class="pet-badge pet-badge-species">{{ pet.species_name }}</span>
+                    <span class="pet-badge pet-badge-form">Forma {{ pet.form }}/{{ pet.form_max }}</span>
+                    {% if pet.nat_data %}
+                    <span class="pet-badge pet-badge-nature"
+                          style="background:{{ pet.nat_data.color }}22; border-color:{{ pet.nat_data.color }}55; color:{{ pet.nat_data.color }}">
+                        {{ pet.nat_data.icon }} {{ pet.nat_data.name }}
+                    </span>
+                    {% endif %}
+                </div>
+            </div>
+            <button class="care-panel-close" onclick="togglePanel()">✕</button>
+        </div>
+
+        <!-- XP -->
+        <div class="pet-level-row">
+            <span class="pet-level-label">Nivel {{ pet.level }}</span>
+            <span class="pet-xp-label" id="xp-label">{{ pet.xp }} / {{ pet.xp_needed }} XP</span>
+        </div>
+        <div class="pet-xp-bar">
+            <div class="pet-xp-fill" id="pet-xp-fill" style="width:{{ pet.xp_pct }}%"></div>
+        </div>
+
+        <!-- Stats -->
+        <div class="pet-stats-grid">
+            <div class="pet-stat-row">
+                <span class="pet-stat-label">❤️ Viață</span>
+                <div class="pet-stat-bar-wrap">
+                    {% set hp_max = pet.stats.hp if pet.stats.hp else 1 %}
+                    {% set hp_pct = ((pet.hp_current / hp_max) * 100)|int if hp_max > 0 else 0 %}
+                    <div class="pet-stat-bar" id="bar-hp"
+                         style="width:{{ hp_pct }}%;
+                                background:{% if hp_pct > 50 %}#4caf7d{% elif hp_pct > 25 %}#f0c060{% else %}#f04747{% endif %}"></div>
+                </div>
+                <span class="pet-stat-val" id="val-hp">{{ hp_pct }}%</span>
+            </div>
+            <div class="pet-stat-row">
+                <span class="pet-stat-label">🍖 Foame</span>
+                <div class="pet-stat-bar-wrap">
+                    <div class="pet-stat-bar" id="bar-hunger"
+                         style="width:{{ pet.hunger }}%; background:var(--stat-hunger)"></div>
+                </div>
+                <span class="pet-stat-val" id="val-hunger">{{ pet.hunger }}/100</span>
+            </div>
+            <div class="pet-stat-row">
+                <span class="pet-stat-label">😊 Fericire</span>
+                <div class="pet-stat-bar-wrap">
+                    <div class="pet-stat-bar" id="bar-happiness"
+                         style="width:{{ pet.happiness }}%; background:var(--stat-happiness)"></div>
+                </div>
+                <span class="pet-stat-val" id="val-happiness">{{ pet.happiness }}/100</span>
+            </div>
+            <div class="pet-stat-row">
+                <span class="pet-stat-label">🧼 Curățenie</span>
+                <div class="pet-stat-bar-wrap">
+                    <div class="pet-stat-bar" id="bar-cleanliness"
+                         style="width:{{ pet.cleanliness }}%; background:var(--stat-clean)"></div>
+                </div>
+                <span class="pet-stat-val" id="val-cleanliness">{{ pet.cleanliness }}/100</span>
+            </div>
+            <div class="pet-stat-row">
+                <span class="pet-stat-label">⚡ Energie</span>
+                <div class="pet-stat-bar-wrap">
+                    <div class="pet-stat-bar" id="bar-energy"
+                         style="width:{{ pet.energy }}%; background:var(--stat-energy)"></div>
+                </div>
+                <span class="pet-stat-val" id="val-energy">{{ pet.energy }}/100</span>
+            </div>
+        </div>
+        </div>
+
+        <!-- Meta -->
+        <div class="pet-meta-row" style="justify-content:center;">
+            <span class="pet-meta-item">🎂 {{ pet.age }}</span>
+            <span class="pet-meta-item">{{ pet.gender_icon }} {{ 'Masculin' if pet.gender == 'male' else 'Feminin' }}</span>
+        </div>
+
+        <!-- Butoane -->
+        <div class="pet-actions" id="pet-actions" style="width:100%;justify-content:center;">
+            {% if pet.sleeping %}
+            <button class="pet-btn pet-btn-wake" data-action="wake"
+                    {% if pet.energy < 50 %}disabled title="Nevoie de 50 energie"{% endif %}>
+                ☀️ Trezește
+            </button>
+            {% else %}
+            <button class="pet-btn pet-btn-feed" data-action="feed"
+                    {% if pet.hunger >= 100 %}disabled{% endif %}>
+                🍖 Hrănește
+            </button>
+            <button class="pet-btn pet-btn-wash" data-action="wash"
+                    {% if pet.cleanliness >= 100 %}disabled{% endif %}>
+                🧼 Spală
+            </button>
+            <button class="pet-btn pet-btn-play" data-action="play"
+                    {% if pet.energy <= 30 or pet.state == 'Hungry' or pet.happiness >= 100 %}disabled{% endif %}>
+                🎮 Joacă
+            </button>
+            <button class="pet-btn pet-btn-sleep" data-action="sleep"
+                    {% if pet.state == 'Dirty' %}disabled title="Spală-l mai întâi"{% endif %}>
+                😴 Culcă
+            </button>
+            {% endif %}
+        </div>
+
+        <div class="pet-action-msg" id="pet-action-msg"></div>
+
+        <button class="pet-btn-abilitati-home" onclick="openAbilitatiHome()">
+            📚 Abilități
+        </button>
+
+    </div>
+</div>
+
+<!-- Overlay inchidere panel -->
+<div class="care-overlay" id="care-overlay" onclick="togglePanel()"></div>
+
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if pet %}
+<style>
+.room-object-clickable{ cursor:pointer; transition:filter 0.15s; }
+.pet-btn-abilitati-home {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    right: 20px;
+    padding: 12px;
+    background: rgba(99, 153, 34, 0.12);
+    border: 1px solid rgba(99, 153, 34, 0.35);
+    color: #4caf7d;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+    width: calc(100% - 40px);
+}
+.pet-btn-abilitati-home:hover { background: rgba(99,153,34,0.22); }
+.room-object-clickable:hover{ filter:brightness(1.2) drop-shadow(0 0 8px rgba(201,168,76,0.5)); }
+.room-object {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;   /* ← contain, nu cover */
+    pointer-events: none;
+    opacity: 0;
+    animation: fadeIn 0.5s ease forwards;
+}
+.room-object-clickable {
+    pointer-events: auto;
+    cursor: pointer;
+    transition: filter 0.15s;
+}
+.room-object-clickable:hover {
+    filter: brightness(1.2) drop-shadow(0 0 8px rgba(201,168,76,0.5));
+}
+
+</style>
+<script>
+function roomObjectClick(action) {
+    console.log('called:', action);
+    if (action === 'companicon') {
+        window.location.href = '/joc/petomania/companicon';
+    } else if (action === 'loadout') {
+        window.location.href = '/joc/petomania/loadout';
+    }
+}
+
+document.querySelectorAll('.room-object-clickable').forEach(img => {
+    img.addEventListener('click', function(e) {
+        roomObjectClick(this.dataset.action);
+    });
+});
+const API_URL = "{{ url_for('api_action') }}";
+
+// Mod rucsac din lupta (?rucsac=1)
+if (new URLSearchParams(window.location.search).get('rucsac') === '1') {
+    document.addEventListener('DOMContentLoaded', () => {
+        const room = document.querySelector('.pet-room-full');
+        if (room) room.style.display = 'none';
+        const careBtn = document.getElementById('btn-ingrijeste');
+        if (careBtn) careBtn.style.display = 'none';
+        if (typeof rucsacOpen === 'function') rucsacOpen();
+    });
+}
+
+// Redeschide panel daca era deschis inainte de reload
+if (sessionStorage.getItem('panelOpen') === '1') {
+    sessionStorage.removeItem('panelOpen');
+    document.addEventListener('DOMContentLoaded', () => {
+        document.getElementById('care-panel').classList.add('care-panel-open');
+        document.getElementById('care-overlay').classList.add('care-overlay-show');
+        document.getElementById('btn-ingrijeste').textContent = '✕ Închide';
+    });
+}
+
+async function openAbilitatiHome() {
+    const resp = await fetch('/joc/petomania/api/training/pet_moves?pet_id=0');
+    const data = await resp.json();
+    if (!data.ok) { alert(data.error); return; }
+
+    // Build overlay dinamic
+    let overlay = document.getElementById('abilitati-home-overlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'abilitati-home-overlay';
+        overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.65);z-index:300;display:flex;align-items:center;justify-content:center';
+        overlay.addEventListener('click', e => { if(e.target===overlay) overlay.remove(); });
+        document.body.appendChild(overlay);
+    }
+
+    const activeKeys = new Set(data.active_moves.map(m => m.key));
+
+    const activeSlotsHtml = data.active_moves.map(m => `
+        <div style="background:rgba(76,175,125,0.1);border:1px solid rgba(76,175,125,0.3);border-radius:8px;padding:10px;text-align:center">
+            <div style="font-size:20px">${m.icon}</div>
+            <div style="font-size:12px;font-weight:600;margin-top:4px">${m.name}</div>
+            <div style="font-size:10px;opacity:0.5">Putere: ${m.power}</div>
+        </div>`).join('');
+
+    const knownHtml = data.known_moves.map(m => {
+        const isActive = activeKeys.has(m.key);
+        return `<div onclick="${isActive ? '' : 'selectSwapHome(this)'}" data-key="${m.key}" data-name="${m.name}" data-icon="${m.icon}"
+            style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-bottom:1px solid rgba(255,255,255,0.07);border-radius:6px;cursor:${isActive?'default':'pointer'};opacity:${isActive?0.45:1}">
+            <span style="font-size:18px">${m.icon}</span>
+            <div style="flex:1">
+                <div style="font-size:13px;font-weight:500">${m.name}</div>
+                <div style="font-size:10px;opacity:0.5">Putere: ${m.power} · Nv.${m.unlock_level}</div>
+            </div>
+            ${isActive ? '<span style="font-size:11px;color:#4caf7d">✓ Activ</span>' : '<span style="font-size:11px;opacity:0.5">Echipează →</span>'}
+        </div>`;
+    }).join('');
+
+    overlay.innerHTML = `
+        <div style="background:var(--bg-elev,#1a1a2e);border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:20px;width:90vw;max-width:480px;max-height:80vh;overflow-y:auto;position:relative">
+            <button onclick="document.getElementById('abilitati-home-overlay').remove()" style="position:absolute;top:12px;right:14px;background:none;border:none;color:rgba(255,255,255,0.5);font-size:20px;cursor:pointer">✕</button>
+            <div style="font-size:16px;font-weight:700;margin-bottom:16px">📚 Abilități — {{ pet.name }}</div>
+            <div style="font-size:12px;opacity:0.5;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.05em">Active</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px" id="home-active-slots">${activeSlotsHtml}</div>
+            <div style="font-size:12px;opacity:0.5;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.05em">Cunoscute</div>
+            <div id="home-known-list">${knownHtml}</div>
+        </div>`;
+    window._homeActiveMoves = data.active_moves;
+}
+
+function selectSwapHome(row) {
+    const newKey  = row.dataset.key;
+    const newName = row.dataset.name;
+    const newIcon = row.dataset.icon;
+
+    // Highlight active slots
+    const slots = document.querySelectorAll('#home-active-slots > div');
+    slots.forEach((slot, idx) => {
+        slot.style.borderColor = '#f0c060';
+        slot.style.cursor = 'pointer';
+        slot.onclick = () => doSwapHome(newKey, window._homeActiveMoves[idx].key, newName);
+    });
+    // Mesaj
+    const known = document.getElementById('home-known-list');
+    if (known) {
+        const msg = document.createElement('div');
+        msg.style.cssText = 'text-align:center;font-size:12px;color:#f0c060;padding:8px';
+        msg.textContent = 'Alege abilitatea de înlocuit';
+        known.prepend(msg);
+    }
+}
+
+async function doSwapHome(newMoveKey, oldMoveKey, newName) {
+    const resp = await fetch('/joc/petomania/api/training/swap', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({pet_id: 0, old_move_key: oldMoveKey, new_move_key: newMoveKey})
+    });
+    const data = await resp.json();
+    const overlay = document.getElementById('abilitati-home-overlay');
+    if (overlay) overlay.remove();
+    if (data.ok) {
+        const msg = document.getElementById('pet-action-msg');
+        if (msg) { msg.textContent = '✅ ' + newName + ' echipat!'; msg.className = 'pet-action-msg pet-action-ok'; setTimeout(()=>msg.textContent='',3000); }
+    } else {
+        alert('❌ ' + data.error);
+    }
+}
+
+function togglePanel() {
+    const panel   = document.getElementById('care-panel');
+    const overlay = document.getElementById('care-overlay');
+    const btn     = document.getElementById('btn-ingrijeste');
+    const open    = panel.classList.toggle('care-panel-open');
+    overlay.classList.toggle('care-overlay-show', open);
+    btn.textContent = open ? '✕ Închide' : '🐾 Îngrijește';
+}
+
+document.querySelectorAll('.pet-btn[data-action]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+        if (btn.disabled) return;
+        const action = btn.dataset.action;
+        document.querySelectorAll('.pet-btn').forEach(b => b.disabled = true);
+        try {
+            const resp = await fetch(API_URL, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({action})
+            });
+            const data = await resp.json();
+            const msgEl = document.getElementById('pet-action-msg');
+            if (!data.ok) {
+                msgEl.textContent = '❌ ' + data.error;
+                msgEl.className = 'pet-action-msg pet-action-err';
+                setTimeout(() => msgEl.textContent = '', 3000);
+                document.querySelectorAll('.pet-btn').forEach(b => b.disabled = false);
+                return;
+            }
+            updatePetUI(data.pet);
+			document.querySelectorAll('.pet-btn').forEach(b => b.disabled = false);
+			if (action === 'play') showEffect('⚡');
+			if (action === 'feed') showEffect('🍖');
+			if (action === 'wash') showEffect('🧼');
+            msgEl.textContent = data.msg;
+            msgEl.className = 'pet-action-msg pet-action-ok';
+            setTimeout(() => msgEl.textContent = '', 3000);
+        } catch(e) {
+            console.error(e);
+            document.querySelectorAll('.pet-btn').forEach(b => b.disabled = false);
+        }
+    });
+});
+
+function showEffect(emoji) {
+    const wrap = document.getElementById('room-pet-wrap');
+    const count = 4 + Math.floor(Math.random() * 3); // 4-6 emoji
+    for (let i = 0; i < count; i++) {
+        setTimeout(() => {
+            const el = document.createElement('div');
+            el.textContent = emoji;
+            const left = 20 + Math.random() * 60; // 20%-80% din latime
+            const size = 1.5 + Math.random() * 1.5; // marime variata
+            const duration = 0.8 + Math.random() * 0.6; // durata variata
+            el.style.cssText = `
+                position: absolute;
+                bottom: 40%;
+                left: ${left}%;
+                font-size: ${size}vw;
+                z-index: 10;
+                pointer-events: none;
+                animation: effectFloat ${duration}s ease forwards;
+            `;
+            wrap.appendChild(el);
+            setTimeout(() => el.remove(), duration * 1000);
+        }, i * 120); // apar unul dupa altul
+    }
+}
+
+function updatePetUI(p) {
+	const imgEl = document.getElementById('room-pet-img');
+	const newImg = new Image();
+	newImg.onload = () => {
+		imgEl.style.opacity = '0';
+		setTimeout(() => {
+			imgEl.src = p.image_url;
+			imgEl.style.opacity = '1';
+		}, 150);
+	};
+	newImg.src = p.image_url;
+    document.getElementById('room-state-icon').textContent = p.state_label[0];
+    document.getElementById('room-state-text').textContent = p.state_label[1];
+    document.getElementById('pet-xp-fill').style.width = p.xp_pct + '%';
+    document.getElementById('xp-label').textContent = p.xp + ' / ' + p.xp_needed + ' XP';
+    ['hunger','happiness','cleanliness','energy'].forEach(s => {
+        document.getElementById('val-' + s).textContent = p[s] + '/100';
+        document.getElementById('bar-' + s).style.width = p[s] + '%';
+    });
+    const wasSleeping = {{ 1 if pet.sleeping else 0 }};
+    if (p.sleeping !== wasSleeping) {
+        sessionStorage.setItem('panelOpen', '1');
+        setTimeout(() => location.reload(), 800);
+    }
+}
+</script>
+{% endif %}
+{% endblock %}

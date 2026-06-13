@@ -1,0 +1,191 @@
+{% extends "base_joc.html" %}
+{% block content_class %}pet-content-city{% endblock %}
+{% block title %}Adâncul Pădurii{% endblock %}
+
+{% block content %}
+<div class="arena-wrap" id="paduredeep-wrap">
+    <canvas id="paduredeep-canvas"></canvas>
+    <div id="paduredeep-tooltip" class="city-tooltip"></div>
+
+    <!-- Buton Inapoi -->
+    <a href="{{ url_for('paduremid') }}" class="room-care-btn"
+       style="z-index:30; top:auto; bottom:14px; right:auto; left:14px;">
+        ← Pădure Mijlocie
+    </a>
+
+    <!-- Buton Pescuit -->
+    <a href="{{ url_for('pescuit') }}" class="room-care-btn"
+       style="z-index:30; top:auto; bottom:14px; right:14px; left:auto; background:rgba(59,130,246,0.2); border-color:rgba(59,130,246,0.4); color:#60a5fa;">
+        🎣 Pescuiește
+    </a>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<style>
+.training-zones {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+    flex-wrap: nowrap;
+    justify-content: center;
+}
+.zone-btn {
+    flex: 1;
+    padding: clamp(10px,1vh,16px) clamp(8px,0.8vw,14px);
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--border);
+    border-radius: 10px;
+    color: var(--text-primary);
+    cursor: pointer;
+    text-align: center;
+    font-family: 'Cinzel', serif;
+    font-size: clamp(10px,0.9vw,13px);
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.zone-btn:hover {
+    background: var(--gold-soft);
+    border-color: var(--gold-dim);
+    color: var(--gold);
+}
+.zone-btn .zone-name { font-weight: 700; font-size: clamp(11px,1vw,14px); display: block; margin-bottom: 4px; }
+.zone-btn .zone-range { opacity: 0.6; font-size: clamp(9px,0.8vw,11px); }
+.zone-btn.locked { opacity: 0.35; cursor: not-allowed; }
+.zone-btn.locked:hover { background: var(--bg-elev); border-color: var(--border); color: var(--text-primary); }
+.move-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: clamp(10px,1vh,14px) clamp(12px,1.2vw,18px);
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    transition: background 0.1s, border-color 0.1s;
+    border-left: 3px solid transparent;
+}
+.move-item:hover { background: var(--gold-soft); border-left-color: var(--gold-dim); }
+.move-item.known { opacity: 0.45; cursor: default; pointer-events: none; }
+.move-icon { font-size: clamp(18px,1.8vw,26px); width: 32px; text-align: center; }
+.move-info { flex: 1; }
+.move-name { font-size: clamp(12px,1.1vw,15px); font-weight: 600; font-family: 'Cinzel', serif; color: var(--text-primary); }
+.move-meta { font-size: clamp(10px,0.9vw,12px); color: var(--text-muted); margin-top: 3px; }
+.move-cost { font-size: clamp(11px,1vw,13px); color: var(--gold); white-space: nowrap; font-family: 'Cinzel', serif; }
+.move-known-badge { font-size: clamp(10px,0.9vw,12px); color: #4caf7d; white-space: nowrap; }
+.training-pet-btn {
+    display: flex;
+    align-items: center;
+    gap: clamp(10px,1vw,16px);
+    padding: clamp(10px,1vh,16px) clamp(14px,1.4vw,22px);
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    width: 100%;
+    color: var(--text-primary);
+    font-family: 'Cinzel', serif;
+    font-size: clamp(11px,1.1vw,15px);
+    font-weight: 600;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+    text-align: left;
+}
+.training-pet-btn:hover { background: var(--gold-soft); border-color: var(--gold-dim); color: var(--gold); }
+.training-pet-nature { font-size: clamp(20px,2vw,28px); flex-shrink: 0; }
+.training-pet-info { flex: 1; }
+.training-pet-name { font-size: clamp(12px,1.1vw,16px); font-weight: 700; }
+.training-pet-sub { font-size: clamp(10px,0.9vw,12px); color: var(--text-muted); margin-top: 3px; font-family: 'Inter', sans-serif; font-weight: 400; }
+</style>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/assets.css') }}">
+<style>
+.arena-wrap {
+    position: relative;
+    height: calc(100vh - var(--footbar-h));
+    width: auto;
+    aspect-ratio: 1287 / 816;
+    max-width: calc(100vw - var(--sidebar-w));
+    min-width: 0;
+    max-height: calc((100vw - var(--sidebar-w)) * 816 / 1287);
+    overflow: hidden;
+    background: #0a0a0a;
+    flex-shrink: 0;
+}
+#paduredeep-canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+}
+</style>
+<script>
+const W = 1287;
+const H = 816;
+const BASE = '/static/padure/';
+
+const canvas  = document.getElementById('paduredeep-canvas');
+const ctx     = canvas.getContext('2d', { willReadFrequently: true });
+const tooltip = document.getElementById('paduredeep-tooltip');
+const wrap    = document.getElementById('paduredeep-wrap');
+
+canvas.width  = W;
+canvas.height = H;
+
+const bgImg     = new Image();
+bgImg.crossOrigin = 'anonymous';
+bgImg.src = BASE + 'ForestDeep.png';
+
+bgImg.onload = () => {
+    ctx.drawImage(bgImg, 0, 0, W, H);
+};
+function redraw(hover) {
+    ctx.clearRect(0, 0, W, H);
+    if (bgImg.complete && bgImg.naturalWidth) ctx.drawImage(bgImg, 0, 0, W, H);
+}
+
+let lastHit      = 0;
+let currentHover = false;
+let popupOpen    = false;
+let inBattle     = false;
+
+
+
+
+
+canvas.addEventListener('mouseleave', () => {
+    tooltip.style.opacity = '0';
+    canvas.style.cursor   = 'default';
+    currentHover = false;
+    if (!inBattle) redraw(false);
+});
+
+// Fade pulse
+let isHovering = false;
+let fadeAlpha = 0, fadeDir = 1, fadActive = false;
+
+function fadeStep() {
+    if (isHovering || inBattle) return;
+    fadeAlpha += fadeDir * 0.05;
+    if (fadeAlpha >= 1) { fadeAlpha = 1; fadeDir = -1; }
+    else if (fadeAlpha <= 0) {
+        fadeAlpha = 0; fadeDir = 1; fadActive = false;
+        ctx.clearRect(0, 0, W, H);
+        if (bgImg.complete && bgImg.naturalWidth) ctx.drawImage(bgImg, 0, 0, W, H);
+        return;
+    }
+    ctx.clearRect(0, 0, W, H);
+    if (bgImg.complete && bgImg.naturalWidth) ctx.drawImage(bgImg, 0, 0, W, H);
+    requestAnimationFrame(fadeStep);
+}
+
+setInterval(() => {
+    if (isHovering || fadActive || inBattle) return;
+    fadActive = true; fadeAlpha = 0; fadeDir = 1;
+    requestAnimationFrame(fadeStep);
+}, 3000);
+
+canvas.addEventListener('mouseenter', () => { isHovering = true; fadActive = false; });
+canvas.addEventListener('mouseleave', () => { isHovering = false; if (!inBattle) redraw(false); });
+
+
+</script>
+{% endblock %}

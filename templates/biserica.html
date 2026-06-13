@@ -1,0 +1,333 @@
+{% extends "base_joc.html" %}
+{% block content_class %}pet-content-city{% endblock %}
+{% block title %}Sanctuarul{% endblock %}
+
+{% block content %}
+<div class="biserica-wrap" id="biserica-wrap">
+    <canvas id="biserica-canvas"></canvas>
+    <div id="biserica-tooltip" class="city-tooltip"></div>
+
+    <!-- Popup principal Arhonte -->
+    <div class="assets-popup-overlay" id="arhonte-overlay">
+        <div class="assets-popup">
+            <button class="assets-popup-close" onclick="closeArhonte()">✕</button>
+            <div class="assets-popup-deco"></div>
+            <div class="assets-popup-title">Arhontele Sanctuarului</div>
+            <div style="font-size:clamp(11px,1vw,14px);color:var(--text-secondary);line-height:1.7;font-style:italic;text-align:center;padding:4px 0 8px">
+                Pace ție, călătorule.<br>
+                Văd în ochii companionilor tăi urmele unui drum lung. Luptele lasă răni nu doar asupra trupului, ci și asupra spiritului.<br>
+                Mulți vin aici căutând putere. Puțini înțeleg că adevărata putere vine din echilibrul dintre om și companion.
+            </div>
+            <button class="assets-popup-btn" onclick="openAjutor()">
+                <span>Am nevoie de ajutor.</span>
+            </button>
+            <button class="assets-popup-btn" onclick="openPoveste()">
+                <span>Spune-mi despre acest loc.</span>
+            </button>
+            <button class="assets-popup-btn" onclick="closeArhonte()">
+                <span>La revedere.</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Popup Ajutor -->
+    <div class="assets-popup-overlay" id="ajutor-overlay">
+        <div class="assets-popup assets-dialog">
+            <button class="assets-popup-close" onclick="closeAjutor()">✕</button>
+            <div class="assets-popup-deco"></div>
+            <div class="assets-popup-title">Arhontele Sanctuarului</div>
+            <div class="assets-dialog-text">
+                Prin ritualurile acestui sanctuar pot vindeca rănile companionilor tăi și le pot reface energia spirituală.<br><br>
+                Însă altarul trebuie întreținut, iar lumina sacră nu arde fără ajutorul credincioșilor.<br><br>
+                <span class="assets-dialog-continue">Cerem o donație de 500 Dacoins.</span>
+            </div>
+            <div>
+                <button class="assets-popup-btn assets-name-btn" onclick="donaVindeca()">
+                    <span>Donez 500 Dacoins.</span>
+                </button>
+                <button class="assets-popup-btn" onclick="openPreaMult()">
+                    <span>Este prea mult.</span>
+                </button>
+                <button class="assets-popup-btn" onclick="closeAjutor(); openArhonte()">
+                    <span>M-am răzgândit.</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Popup Ritual -->
+    <div class="assets-popup-overlay" id="ritual-overlay">
+        <div class="assets-popup assets-dialog">
+            <div class="assets-popup-deco"></div>
+            <div class="assets-popup-title">Arhontele Sanctuarului</div>
+            <div class="assets-dialog-text" id="ritual-text">
+                Generozitatea ta nu va fi uitată.<br><br>
+                <em class="assets-dialog-action">*Închide ochii pentru o clipă și lasă liniștea să vorbească.*</em>
+            </div>
+            <div id="ritual-actions"></div>
+        </div>
+    </div>
+
+    <!-- Popup Prea mult -->
+    <div class="assets-popup-overlay" id="preamult-overlay">
+        <div class="assets-popup assets-dialog">
+            <button class="assets-popup-close" onclick="closePreaMult()">✕</button>
+            <div class="assets-popup-deco"></div>
+            <div class="assets-popup-title">Arhontele Sanctuarului</div>
+            <div class="assets-dialog-text">
+                Poate că așa pare.<br><br>
+                Dar această biserică nu este susținută de regi și nici de negustori bogați.<br><br>
+                Fiecare piatră a acestor ziduri a fost ridicată prin ajutorul celor care au găsit alinare aici.<br><br>
+                <em class="assets-dialog-action">*Când vei fi pregătit, te voi aștepta.*</em>
+            </div>
+            <div>
+                <button class="assets-popup-btn assets-name-btn" onclick="closePreaMult(); donaVindeca()">
+                    <span>Donez 500 Dacoins.</span>
+                </button>
+                <button class="assets-popup-btn" onclick="closePreaMult(); closeAjutor()">
+                    <span>La revedere.</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Popup Poveste -->
+    <div class="assets-popup-overlay" id="poveste-overlay">
+        <div class="assets-popup assets-dialog">
+            <button class="assets-popup-close" onclick="closePoveste()">✕</button>
+            <div class="assets-popup-deco"></div>
+            <div class="assets-popup-title">Arhontele Sanctuarului</div>
+            <div class="assets-dialog-text">
+                Acest sanctuar există de generații.<br><br>
+                Înainte ca marile orașe să fie ridicate, călătorii se adăposteau aici împreună cu companionii lor.<br><br>
+                <em class="assets-dialog-action">*Se spune că primele ritualuri de vindecare au fost descoperite de un păstor care și-a salvat companionul prin credință și răbdare.*</em><br><br>
+                De atunci, cei care slujesc acest loc au jurat să ofere ajutor tuturor celor aflați la nevoie.
+            </div>
+            <div>
+                <button class="assets-popup-btn" onclick="closePoveste(); openAjutor()">
+                    <span>Am nevoie de ajutor.</span>
+                </button>
+                <button class="assets-popup-btn" onclick="closePoveste()">
+                    <span>La revedere.</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Buton Inapoi -->
+    <a href="{{ url_for('piata') }}" class="room-care-btn"
+       style="z-index:30; top:auto; bottom:14px; right:auto; left:14px;">
+        ← Piață
+    </a>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/assets.css') }}">
+<style>
+.biserica-wrap {
+    position: relative;
+    height: calc(100vh - var(--footbar-h));
+    width: auto;
+    aspect-ratio: 1287 / 816;
+    max-width: calc(100vw - var(--sidebar-w));
+    min-width: 0;
+    max-height: calc((100vw - var(--sidebar-w)) * 816 / 1287);
+    overflow: hidden;
+    background: #0a0a0a;
+    flex-shrink: 0;
+}
+#biserica-canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+}
+</style>
+<script>
+const W = 1287;
+const H = 816;
+const BASE = '/static/biserica/';
+
+const canvas  = document.getElementById('biserica-canvas');
+const ctx     = canvas.getContext('2d', { willReadFrequently: true });
+const tooltip = document.getElementById('biserica-tooltip');
+const wrap    = document.getElementById('biserica-wrap');
+
+canvas.width  = W;
+canvas.height = H;
+
+const bgImg   = new Image();
+bgImg.crossOrigin = 'anonymous';
+bgImg.src = BASE + 'biserica.png';
+
+const preotImg = new Image();
+preotImg.crossOrigin = 'anonymous';
+preotImg.src = BASE + 'preot.png';
+
+const preotOff = document.createElement('canvas');
+preotOff.width  = W;
+preotOff.height = H;
+
+let loaded = 0;
+function onLoad() {
+    loaded++;
+    if (loaded < 2) return;
+    ctx.drawImage(bgImg,   0, 0, W, H);
+    ctx.drawImage(preotImg, 0, 0, W, H);
+    const oc = preotOff.getContext('2d', { willReadFrequently: true });
+    oc.drawImage(preotImg, 0, 0, W, H);
+}
+bgImg.onload    = onLoad;
+preotImg.onload = onLoad;
+
+function redraw(hover) {
+    ctx.clearRect(0, 0, W, H);
+    ctx.drawImage(bgImg, 0, 0, W, H);
+    ctx.drawImage(preotImg, 0, 0, W, H);
+    if (hover) {
+        ctx.save();
+        ctx.globalAlpha = 0.45;
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.drawImage(preotImg, 0, 0, W, H);
+        ctx.restore();
+    }
+}
+
+let lastHit = 0;
+let currentHover = false;
+let popupOpen = false;
+
+canvas.addEventListener('mousemove', (e) => {
+    if (popupOpen) return;
+    if (currentHover) {
+        tooltip.style.left = (e.clientX - wrap.getBoundingClientRect().left + 14) + 'px';
+        tooltip.style.top  = (e.clientY - wrap.getBoundingClientRect().top  - 8)  + 'px';
+    }
+    const now = Date.now();
+    if (now - lastHit < 33) return;
+    lastHit = now;
+    const rect  = canvas.getBoundingClientRect();
+    const x = Math.floor((e.clientX - rect.left) * W / rect.width);
+    const y = Math.floor((e.clientY - rect.top)  * H / rect.height);
+    const oc    = preotOff.getContext('2d', { willReadFrequently: true });
+    const alpha = oc.getImageData(x, y, 1, 1).data[3];
+    const hit   = alpha > 20;
+    if (hit !== currentHover) {
+        currentHover = hit;
+        canvas.style.cursor   = hit ? 'pointer' : 'default';
+        tooltip.style.opacity = hit ? '1' : '0';
+        if (hit) tooltip.textContent = ' Arhontele Sanctuarului';
+        redraw(hit);
+    }
+});
+
+canvas.addEventListener('click', (e) => {
+    const rect  = canvas.getBoundingClientRect();
+    const x = Math.floor((e.clientX - rect.left) * W / rect.width);
+    const y = Math.floor((e.clientY - rect.top)  * H / rect.height);
+    const oc    = preotOff.getContext('2d', { willReadFrequently: true });
+    const alpha = oc.getImageData(x, y, 1, 1).data[3];
+    if (alpha > 20) openArhonte();
+});
+
+canvas.addEventListener('mouseleave', () => {
+    tooltip.style.opacity = '0';
+    canvas.style.cursor   = 'default';
+    currentHover = false;
+    redraw(false);
+});
+
+// Glow animat
+let fadeAlpha = 0, fadeDir = 1, fadeActive = false, isHovering = false;
+function fadeStep() {
+    if (isHovering) return;
+    fadeAlpha += fadeDir * 0.05;
+    if (fadeAlpha >= 1) { fadeAlpha = 1; fadeDir = -1; }
+    else if (fadeAlpha <= 0) {
+        fadeAlpha = 0; fadeDir = 1; fadeActive = false;
+        redraw(false); return;
+    }
+    ctx.clearRect(0, 0, W, H);
+    ctx.drawImage(bgImg, 0, 0, W, H);
+    ctx.drawImage(preotImg, 0, 0, W, H);
+    ctx.save();
+    ctx.globalAlpha = fadeAlpha * 0.30;
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.drawImage(preotImg, 0, 0, W, H);
+    ctx.restore();
+    requestAnimationFrame(fadeStep);
+}
+setInterval(() => {
+    if (isHovering || fadeActive) return;
+    fadeActive = true; fadeAlpha = 0; fadeDir = 1;
+    requestAnimationFrame(fadeStep);
+}, 4000);
+canvas.addEventListener('mouseenter', () => { isHovering = true; fadeActive = false; });
+canvas.addEventListener('mouseleave', () => { isHovering = false; redraw(false); });
+
+// ── POPUP HELPERS ──
+function allClosed() {
+    ['arhonte-overlay','ajutor-overlay','ritual-overlay','preamult-overlay','poveste-overlay']
+        .forEach(id => document.getElementById(id).classList.remove('open'));
+    popupOpen = false;
+}
+function openOverlay(id) { allClosed(); document.getElementById(id).classList.add('open'); popupOpen = true; }
+
+function openArhonte()  { openOverlay('arhonte-overlay'); }
+function closeArhonte() { allClosed(); }
+function openAjutor()   { openOverlay('ajutor-overlay'); }
+function closeAjutor()  { allClosed(); }
+function openPoveste()  { openOverlay('poveste-overlay'); }
+function closePoveste() { allClosed(); }
+function openPreaMult() { openOverlay('preamult-overlay'); }
+function closePreaMult(){ allClosed(); }
+
+['arhonte-overlay','ajutor-overlay','preamult-overlay','poveste-overlay'].forEach(id => {
+    document.getElementById(id).addEventListener('click', e => {
+        if (e.target.id === id) allClosed();
+    });
+});
+
+// ── RITUAL ──
+async function donaVindeca() {
+    openOverlay('ritual-overlay');
+    document.getElementById('ritual-text').innerHTML = `
+        Generozitatea ta nu va fi uitată.<br><br>
+        <em class="assets-dialog-action">*Închide ochii pentru o clipă și lasă liniștea să vorbească.*</em>
+    `;
+    document.getElementById('ritual-actions').innerHTML = '';
+
+    await new Promise(r => setTimeout(r, 1800));
+
+    const resp = await fetch('/joc/petomania/api/biserica/vindeca', { method: 'POST' });
+    const data = await resp.json();
+
+    if (!data.ok) {
+        document.getElementById('ritual-text').innerHTML = `
+            <span style="color:var(--danger)">${data.error}</span><br><br>
+            <em class="assets-dialog-action">Întoarce-te când vei fi pregătit.</em>
+        `;
+        document.getElementById('ritual-actions').innerHTML = `
+            <button class="assets-popup-btn" onclick="allClosed()">
+                <span>Înțeleg.</span>
+            </button>`;
+        return;
+    }
+
+    document.getElementById('ritual-text').innerHTML = `
+        <em class="assets-dialog-action">*Fie ca spiritele strămoșilor să le aline suferința.*</em><br>
+        <em class="assets-dialog-action">*Fie ca inimile lor să rămână neclintite în fața întunericului.*</em><br>
+        <em class="assets-dialog-action">*Fie ca legătura dintre voi să devină mai puternică decât înainte.*</em><br><br>
+        <span style="color:#4caf7d"> Toți companionii au fost vindecați.</span><br>
+        <span style="color:#378ADD"> MP-ul tuturor companionilor a fost restaurat.</span><br><br>
+        Gata. Trupurile lor sunt întregite, iar sufletele lor odihnite.<br><br>
+        <em class="assets-dialog-action">Mergi înainte cu încredere, călătorule.</em>
+    `;
+    document.getElementById('ritual-actions').innerHTML = `
+        <button class="assets-popup-btn assets-name-btn" onclick="allClosed()">
+            <span>Mulțumesc.</span>
+        </button>`;
+}
+</script>
+{% endblock %}

@@ -1,0 +1,12 @@
+{% extends "base_joc.html" %}
+{% block title %}Aventura{% endblock %}
+{% block content_class %}pet-content-scroll{% endblock %}
+
+{% block content %}
+<div class="pet-empty-state">
+    <div class="pet-empty-icon">⚔️</div>
+    <h2>Aventura</h2>
+    <p>Această zonă este în construcție. Revino curând!</p>
+    <a href="{{ url_for('oras') }}" class="pet-btn pet-btn-feed">← Înapoi la Oraș</a>
+</div>
+{% endblock %}

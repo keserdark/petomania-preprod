@@ -1,0 +1,353 @@
+{% extends "base_joc.html" %}
+{% block content_class %}pet-content-city{% endblock %}
+{% block title %}Pădure{% endblock %}
+
+{% block content %}
+<div class="arena-wrap" id="padure-wrap">
+    <canvas id="padure-canvas"></canvas>
+    <div id="padure-tooltip" class="city-tooltip"></div>
+
+    <!-- Overlay Daiana Solaris -->
+    <div class="assets-popup-overlay" id="daiana-overlay" style="display:none;position:fixed;inset:0;z-index:400;align-items:center;justify-content:center;">
+        <div style="position:absolute;inset:0;background-size:100% 100%;background-position:center;background-image:url('/static/padure/DaianaSolaris.png');filter:brightness(0.35)"></div>
+        <div class="assets-popup assets-dialog" style="position:relative;z-index:1;max-width:480px;" id="daiana-dialog-box">
+            <div class="assets-popup-deco"></div>
+            <div class="assets-popup-title">Daiana Solaris</div>
+            <div style="font-size:11px;color:var(--text-muted);text-align:center;margin-top:-8px;margin-bottom:10px;font-style:italic">Prim Gardian al Regatului</div>
+            <div class="assets-dialog-text" id="daiana-text"></div>
+            <div id="daiana-actions"></div>
+        </div>
+    </div>
+
+    <!-- Buton Inapoi -->
+    <a href="{{ url_for('oras') }}" class="room-care-btn"
+       style="z-index:30; top:auto; bottom:14px; right:auto; left:14px;">
+        ← Oraș
+    </a>
+
+    <!-- Buton Vânează -->
+    <a href="{{ url_for('vanatoare') }}" class="room-care-btn"
+       style="z-index:30; top:14px; right:14px; bottom:auto; left:auto;">
+        Vânează →
+    </a>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<style>
+.training-zones {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+    flex-wrap: nowrap;
+    justify-content: center;
+}
+.zone-btn {
+    flex: 1;
+    padding: clamp(10px,1vh,16px) clamp(8px,0.8vw,14px);
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--border);
+    border-radius: 10px;
+    color: var(--text-primary);
+    cursor: pointer;
+    text-align: center;
+    font-family: 'Cinzel', serif;
+    font-size: clamp(10px,0.9vw,13px);
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.zone-btn:hover {
+    background: var(--gold-soft);
+    border-color: var(--gold-dim);
+    color: var(--gold);
+}
+.zone-btn .zone-name { font-weight: 700; font-size: clamp(11px,1vw,14px); display: block; margin-bottom: 4px; }
+.zone-btn .zone-range { opacity: 0.6; font-size: clamp(9px,0.8vw,11px); }
+.zone-btn.locked { opacity: 0.35; cursor: not-allowed; }
+.zone-btn.locked:hover { background: var(--bg-elev); border-color: var(--border); color: var(--text-primary); }
+.move-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: clamp(10px,1vh,14px) clamp(12px,1.2vw,18px);
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    transition: background 0.1s, border-color 0.1s;
+    border-left: 3px solid transparent;
+}
+.move-item:hover { background: var(--gold-soft); border-left-color: var(--gold-dim); }
+.move-item.known { opacity: 0.45; cursor: default; pointer-events: none; }
+.move-icon { font-size: clamp(18px,1.8vw,26px); width: 32px; text-align: center; }
+.move-info { flex: 1; }
+.move-name { font-size: clamp(12px,1.1vw,15px); font-weight: 600; font-family: 'Cinzel', serif; color: var(--text-primary); }
+.move-meta { font-size: clamp(10px,0.9vw,12px); color: var(--text-muted); margin-top: 3px; }
+.move-cost { font-size: clamp(11px,1vw,13px); color: var(--gold); white-space: nowrap; font-family: 'Cinzel', serif; }
+.move-known-badge { font-size: clamp(10px,0.9vw,12px); color: #4caf7d; white-space: nowrap; }
+.training-pet-btn {
+    display: flex;
+    align-items: center;
+    gap: clamp(10px,1vw,16px);
+    padding: clamp(10px,1vh,16px) clamp(14px,1.4vw,22px);
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    width: 100%;
+    color: var(--text-primary);
+    font-family: 'Cinzel', serif;
+    font-size: clamp(11px,1.1vw,15px);
+    font-weight: 600;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+    text-align: left;
+}
+.training-pet-btn:hover { background: var(--gold-soft); border-color: var(--gold-dim); color: var(--gold); }
+.training-pet-nature { font-size: clamp(20px,2vw,28px); flex-shrink: 0; }
+.training-pet-info { flex: 1; }
+.training-pet-name { font-size: clamp(12px,1.1vw,16px); font-weight: 700; }
+.training-pet-sub { font-size: clamp(10px,0.9vw,12px); color: var(--text-muted); margin-top: 3px; font-family: 'Inter', sans-serif; font-weight: 400; }
+</style>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/assets.css') }}">
+<style>
+.arena-wrap {
+    position: relative;
+    height: calc(100vh - var(--footbar-h));
+    width: auto;
+    aspect-ratio: 1287 / 816;
+    max-width: calc(100vw - var(--sidebar-w));
+    min-width: 0;
+    max-height: calc((100vw - var(--sidebar-w)) * 816 / 1287);
+    overflow: hidden;
+    background: #0a0a0a;
+    flex-shrink: 0;
+}
+#padure-canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+}
+</style>
+<script>
+const W = 1287;
+const H = 816;
+const BASE = '/static/padure/';
+
+const canvas  = document.getElementById('padure-canvas');
+const ctx     = canvas.getContext('2d', { willReadFrequently: true });
+const tooltip = document.getElementById('padure-tooltip');
+const wrap    = document.getElementById('padure-wrap');
+
+canvas.width  = W;
+canvas.height = H;
+
+const bgImg     = new Image();
+bgImg.crossOrigin = 'anonymous';
+bgImg.src = BASE + 'ForestEntry.png';
+
+const arrowImg = new Image();
+arrowImg.crossOrigin = 'anonymous';
+arrowImg.src = BASE + 'ForestEntryArrow.png';
+
+const arrowOff = document.createElement('canvas');
+arrowOff.width  = W;
+arrowOff.height = H;
+
+let loaded = 0;
+function onLoad() {
+    loaded++;
+    if (loaded < 2) return;
+    ctx.drawImage(bgImg, 0, 0, W, H);
+    ctx.drawImage(arrowImg, 0, 0, W, H);
+    const oc = arrowOff.getContext('2d', { willReadFrequently: true });
+    oc.drawImage(arrowImg, 0, 0, W, H);
+}
+bgImg.onload     = onLoad;
+arrowImg.onload = onLoad;
+function redraw(hover) {
+    ctx.clearRect(0, 0, W, H);
+    if (bgImg.complete && bgImg.naturalWidth) ctx.drawImage(bgImg, 0, 0, W, H);
+    if (arrowImg.complete && arrowImg.naturalWidth) {
+        ctx.drawImage(arrowImg, 0, 0, W, H);
+        if (hover) {
+            ctx.save();
+            ctx.globalAlpha = 0.45;
+            ctx.globalCompositeOperation = 'lighter';
+            ctx.drawImage(arrowImg, 0, 0, W, H);
+            ctx.restore();
+        }
+    }
+}
+
+let lastHit      = 0;
+let currentHover = false;
+let popupOpen    = false;
+let inBattle     = false;
+
+canvas.addEventListener('mousemove', (e) => {
+    if (popupOpen || inBattle) return;
+    if (currentHover) {
+        tooltip.style.left = (e.clientX - wrap.getBoundingClientRect().left + 14) + 'px';
+        tooltip.style.top  = (e.clientY - wrap.getBoundingClientRect().top  - 8)  + 'px';
+    }
+    const now = Date.now();
+    if (now - lastHit < 33) return;
+    lastHit = now;
+    const rect  = canvas.getBoundingClientRect();
+    const x = Math.floor((e.clientX - rect.left) * W / rect.width);
+    const y = Math.floor((e.clientY - rect.top)  * H / rect.height);
+    const oc    = arrowOff.getContext('2d', { willReadFrequently: true });
+    const alpha = oc.getImageData(x, y, 1, 1).data[3];
+    const hit   = alpha > 20;
+    if (hit !== currentHover) {
+        currentHover = hit;
+        canvas.style.cursor   = hit ? 'pointer' : 'default';
+        tooltip.style.opacity = hit ? '1' : '0';
+        if (hit) tooltip.textContent = '🌲 Intră în Pădure';
+        redraw(hit);
+    }
+});
+
+canvas.addEventListener('click', (e) => {
+    if (inBattle) return;
+    const rect  = canvas.getBoundingClientRect();
+    const x = Math.floor((e.clientX - rect.left) * W / rect.width);
+    const y = Math.floor((e.clientY - rect.top)  * H / rect.height);
+    const oc    = arrowOff.getContext('2d', { willReadFrequently: true });
+    const alpha = oc.getImageData(x, y, 1, 1).data[3];
+    if (alpha > 20) window.location.href = '/joc/petomania/paduremid';
+});
+
+canvas.addEventListener('mouseleave', () => {
+    tooltip.style.opacity = '0';
+    canvas.style.cursor   = 'default';
+    currentHover = false;
+    if (!inBattle) redraw(false);
+});
+
+// Fade pulse
+let isHovering = false;
+let fadeAlpha = 0, fadeDir = 1, fadActive = false;
+
+function fadeStep() {
+    if (isHovering || inBattle) return;
+    fadeAlpha += fadeDir * 0.05;
+    if (fadeAlpha >= 1) { fadeAlpha = 1; fadeDir = -1; }
+    else if (fadeAlpha <= 0) {
+        fadeAlpha = 0; fadeDir = 1; fadActive = false;
+        ctx.clearRect(0, 0, W, H);
+        if (bgImg.complete && bgImg.naturalWidth) ctx.drawImage(bgImg, 0, 0, W, H);
+        if (arrowImg.complete && arrowImg.naturalWidth) ctx.drawImage(arrowImg, 0, 0, W, H);
+        return;
+    }
+    ctx.clearRect(0, 0, W, H);
+    if (bgImg.complete && bgImg.naturalWidth) ctx.drawImage(bgImg, 0, 0, W, H);
+    if (arrowImg.complete && arrowImg.naturalWidth) {
+        ctx.drawImage(arrowImg, 0, 0, W, H);
+        ctx.save();
+        ctx.globalAlpha = fadeAlpha * 0.35;
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.drawImage(arrowImg, 0, 0, W, H);
+        ctx.restore();
+    }
+    requestAnimationFrame(fadeStep);
+}
+
+setInterval(() => {
+    if (isHovering || fadActive || inBattle) return;
+    fadActive = true; fadeAlpha = 0; fadeDir = 1;
+    requestAnimationFrame(fadeStep);
+}, 3000);
+
+canvas.addEventListener('mouseenter', () => { isHovering = true; fadActive = false; });
+canvas.addEventListener('mouseleave', () => { isHovering = false; if (!inBattle) redraw(false); });
+
+
+// ── DAIANA SOLARIS ──
+let _daiana_data = null;
+
+async function checkDaiana() {
+    const resp = await fetch('/joc/petomania/api/daiana/check');
+    const data = await resp.json();
+    if (!data.trigger) return;
+    _daiana_data = data;
+    document.getElementById('daiana-overlay').style.display = 'flex';
+    renderDaiana('intro');
+}
+
+function renderDaiana(step) {
+    const textEl = document.getElementById('daiana-text');
+    const actsEl = document.getElementById('daiana-actions');
+    actsEl.innerHTML = '';
+
+    const mk = (label, fn) => {
+        const b = document.createElement('button');
+        b.className = 'assets-popup-btn';
+        b.innerHTML = `<span>${label}</span>`;
+        b.onclick = fn;
+        actsEl.appendChild(b);
+    };
+
+    if (step === 'intro') {
+        textEl.innerHTML = `Am auzit zvonuri că mai nou se vânează ilegal în pădurile Regatului.<br><br>
+            Spune, cetățene, ai consimțământul Regelui pentru a vâna pe teritoriile lui?`;
+        mk('Da, am concesiune de vânătoare.', () => renderDaiana('are_concesiune'));
+        mk('Nu... nu știam că am nevoie.', () => renderDaiana('nu_are'));
+    }
+    else if (step === 'are_concesiune') {
+        textEl.innerHTML = `<em>*Daiana îți verifică rapid numele în registrul mental al concesiunilor.*</em><br><br>
+            Bine. Apreciez că respecți legea — nu mulți o fac din proprie inițiativă.<br><br>
+            Continuă-ți vânătoarea și ai grijă de pădure. E mai valoroasă decât crezi.<br><br>
+            <span style="color:#4caf7d">Zi bună, cetățene.</span>`;
+        mk('Mulțumesc. O zi bună și ție.', () => {
+            document.getElementById('daiana-overlay').style.display = 'none';
+        });
+    }
+    else if (step === 'nu_are') {
+        if (_daiana_data.daiana_warned === 0) {
+            textEl.innerHTML = `<em>*Daiana te privește cu o privire calculată, fără ostilitate, dar fără blândețe.*</em><br><br>
+                Înțeleg. De data aceasta, accept că nu ai știut.<br><br>
+                Dar acum știi: pădurile aparțin Coroanei, iar vânătoarea fără concesiune este ilegală pe teritoriul Regnum Dacorum.<br><br>
+                Du-te la Castel și cere-i lui Aldric Solvar o concesiune de vânătoare. Până atunci, te sfătuiesc să te limitezi la plimbări.<br><br>
+                <em>Data viitoare nu voi mai fi atât de îngăduitoare.</em>`;
+            mk('Înțeleg. Mulțumesc pentru avertisment.', () => applyDaianaAvertisment());
+        } else {
+            textEl.innerHTML = `<em>*Daiana te recunoaște imediat și un zâmbet rece îi încrețește colțul gurii.*</em><br><br>
+                Iar tu... te-am mai văzut eu pe-aci.<br><br>
+                Ți-am spus și data trecută să îți faci rost de un consimțământ, nu? De această dată, nu mai poți avea scuza că n-ai știut.<br><br>
+                Va fi <span style="color:#e05252">1.000 Dacoins</span> amendă.`;
+            mk('Plătesc amenda.', () => applyDaianaAmenda());
+        }
+    }
+    else if (step === 'amenda_platita') {
+        const a = _daiana_data._amenda;
+        const r = _daiana_data._ramas;
+        textEl.innerHTML = `<em>*Daiana înregistrează plata cu o mișcare precisă.*</em><br><br>
+            ${a === 1000 ? `Bine. Cei 1.000 de Dacoins au fost reținuți.` : `Hmm, pari amărât și nu ai nici măcar bani de amendă. În acest caz, voi lua cât ai la tine — <span style="color:#e05252">${a} Dacoins</span>.`}<br><br>
+            Și acum du-te la Castel și rezolvă situația. Nu vreau să te mai văd fără concesiune.<br><br>
+            <span style="opacity:0.6;font-size:12px">Sold rămas: ${r} Dacoins</span>`;
+        mk('Da, mă duc imediat.', () => {
+            document.getElementById('daiana-overlay').style.display = 'none';
+        });
+    }
+}
+
+async function applyDaianaAvertisment() {
+    await fetch('/joc/petomania/api/daiana/amenda', {method:'POST'});
+    document.getElementById('daiana-overlay').style.display = 'none';
+}
+
+async function applyDaianaAmenda() {
+    const resp = await fetch('/joc/petomania/api/daiana/amenda', {method:'POST'});
+    const data = await resp.json();
+    _daiana_data._amenda = data.amenda;
+    _daiana_data._ramas  = data.balance_ramas;
+    renderDaiana('amenda_platita');
+}
+
+// Verifica Daiana la incarcarea paginii (dupa o lupta)
+window.addEventListener('load', () => { setTimeout(checkDaiana, 800); });
+
+</script>
+{% endblock %}

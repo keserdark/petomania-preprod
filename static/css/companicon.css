@@ -1,0 +1,190 @@
+/* =====================================================
+   Companicon — CSS specific
+   static_site/css/companicon.css
+   ===================================================== */
+
+.companicon-wrap {
+    position: relative;
+    height: calc(100vh - var(--footbar-h));
+    width: auto;
+    aspect-ratio: 1328 / 1024;
+    max-width: calc(100vw - var(--sidebar-w));
+    min-width: 0;
+    max-height: calc((100vw - var(--sidebar-w)) * 1024 / 1328);
+    overflow: visible;
+    flex-shrink: 0;
+}
+
+#companicon-canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+
+/* ===== PAGINA ===== */
+
+.comp-page {
+    position: absolute;
+    top: 5%;
+    width: 40%;
+    height: 88%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: clamp(4px, 0.6vh, 10px);
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 0 clamp(8px, 1.5%, 20px);
+    scrollbar-width: none;
+	justify-content: flex-start;
+	padding-bottom: clamp(40px, 6vh, 70px); /* spatiu pentru labuta */
+}
+.comp-page::-webkit-scrollbar { display: none; }
+
+.comp-page-left  { left:  7%; }
+.comp-page-right { left: 52%; }
+
+/* ===== CANVAS PET ===== */
+
+.comp-pet-canvas {
+    width: 55%;
+    height: auto;
+    border: 2px solid #5a3a1a;
+    border-radius: 8px;
+    box-shadow: 0 0 8px rgba(90, 58, 26, 0.4);
+    flex-shrink: 0;
+}
+
+/* ===== ELEMENTE PAGINA ===== */
+
+.comp-code {
+    font-family: 'Cinzel', serif;
+    font-size: clamp(4px, 1.1vw, 16px);
+    color: #5a3a1a;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-align: center;
+    flex-shrink: 0;
+}
+
+.comp-nature-row {
+    font-size: clamp(6px, 1vw, 15px);
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex-shrink: 0;
+}
+
+.comp-nature-label {
+    color: #4a2f1a;
+    font-family: 'Cinzel', serif;
+    font-size: 0.9em;
+}
+
+.comp-desc {
+    font-size: clamp(4px, 0.95vw, 14px);
+    color: #4a2f1a;
+    line-height: 1.5;
+    font-style: italic;
+    text-align: center;
+    padding: clamp(6px, 0.8vw, 12px);
+    border: 1px solid rgba(90, 58, 26, 0.3);
+    border-radius: 6px;
+    background: rgba(90, 58, 26, 0.06);
+    width: 100%;
+    box-sizing: border-box;
+    flex-shrink: 0;
+}
+
+.comp-separator {
+    width: 70%;
+    height: auto;
+    opacity: 0.7;
+    flex-shrink: 0;
+}
+
+.comp-lore {
+    font-size: clamp(4px, 0.9vw, 13px);
+    color: #4a2f1a;
+    line-height: 1.65;
+    text-align: justify;
+    width: 100%;
+	max-height: 25vh;
+    overflow-y: auto;
+    scrollbar-width: none;
+}
+.comp-lore::-webkit-scrollbar { display: none; }
+
+
+
+.comp-lore p {
+    margin: 0 0 clamp(6px, 0.7vh, 10px) 0;
+}
+
+.comp-labuta {
+    position: absolute;
+    bottom: clamp(8px, 2vh, 20px);
+    left: 50%;
+    transform: translateX(-50%);
+    width: 12%;
+    height: auto;
+    opacity: 0.6;
+	margin-bottom:16%;
+}
+
+.comp-progress {
+    font-size: clamp(8px, 0.8vw, 12px);
+    color: #7a5230;
+    font-family: 'Cinzel', serif;
+    text-align: right;
+    width: 100%;
+    flex-shrink: 0;
+}
+
+/* ===== SAGETI ===== */
+
+.companicon-arrow {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(61, 31, 10, 0.7);
+    border: 2px solid rgba(90, 58, 26, 0.5);
+    color: #d4a96a;
+    font-size: clamp(16px, 2vw, 28px);
+    width: clamp(32px, 3vw, 52px);
+    height: clamp(32px, 3vw, 52px);
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    z-index: 10;
+}
+
+.companicon-arrow:hover:not(:disabled) {
+    background: rgba(90, 58, 26, 0.9);
+    color: #ffd700;
+}
+
+.companicon-arrow:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+.companicon-arrow-left  { left:  -36px; }
+.companicon-arrow-right { right: -36px; }
+
+/* ===== PET ROW (male + female) ===== */
+.comp-pet-row {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    align-items: flex-end;
+    gap: clamp(4px, 0.8vw, 12px);
+    width: 100%;
+    flex-shrink: 0;
+}

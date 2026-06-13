@@ -1,0 +1,201 @@
+/* =====================================================
+   Assets — CSS specific
+   static_site/css/assets.css
+   ===================================================== */
+
+/* ===== WRAP ASSETS ===== */
+
+.assets-wrap {
+    position: relative;
+    height: calc(100vh - var(--footbar-h));
+    width: auto;
+    aspect-ratio: 2730 / 1536;
+    max-width: calc(100vw - var(--sidebar-w));
+    min-width: 0;
+    max-height: calc((100vw - var(--sidebar-w)) * 1536 / 2730);
+    overflow: hidden;
+    background: #0a0a0a;
+    flex-shrink: 0;
+}
+
+#assets-canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+}
+
+/* ===== POPUP LADY ===== */
+
+.assets-popup-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.75);
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease;
+    overflow: hidden;
+}
+
+.assets-popup-overlay.open {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.assets-popup-overlay.open .assets-popup {
+    transform: translateY(0);
+}
+
+.assets-popup {
+    background: var(--bg-card);
+    border: 1px solid var(--border-strong);
+    border-radius: 16px;
+    padding: clamp(24px, 2.5vw, 44px);
+    min-width: clamp(280px, 30vw, 500px);
+    max-width: 90%;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,215,0,0.1);
+    display: flex;
+    flex-direction: column;
+    gap: clamp(10px, 1.2vh, 18px);
+    transform: translateY(16px);
+    transition: transform 0.25s ease;
+    position: relative;
+    margin-top: 28px;
+    max-height: calc(90vh - 28px);
+    display: flex;
+    flex-direction: column;
+}
+
+/* Decoratie medievala sus */
+.assets-popup::before {
+    content: '⚜️';
+    position: absolute;
+    top: -22px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: clamp(24px, 2.5vw, 36px);
+    background: var(--bg-card);
+    padding: 0 8px;
+}
+
+.assets-popup-title {
+    font-family: 'Cinzel', serif;
+    font-size: clamp(14px, 1.4vw, 20px);
+    font-weight: 700;
+    color: var(--gold);
+    text-align: center;
+    padding-bottom: clamp(8px, 0.8vh, 14px);
+    border-bottom: 1px solid var(--border);
+}
+
+.assets-popup-close {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--border);
+    color: var(--text-muted);
+    width: clamp(24px, 2vw, 34px);
+    height: clamp(24px, 2vw, 34px);
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: clamp(11px, 1vw, 15px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: none;
+}
+.assets-popup-close:hover { color: var(--danger); border-color: var(--danger); }
+
+/* Butoane din popup */
+.assets-popup-btn {
+    display: flex;
+    align-items: center;
+    gap: clamp(10px, 1vw, 16px);
+    padding: clamp(10px, 1vh, 16px) clamp(14px, 1.4vw, 22px);
+    border-radius: 10px;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--border);
+    color: var(--text-primary);
+    font-family: 'Cinzel', serif;
+    font-size: clamp(11px, 1.1vw, 16px);
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+    text-align: left;
+    width: 100%;
+}
+.assets-popup-btn:hover {
+    background: var(--gold-soft);
+    border-color: var(--gold-dim);
+    color: var(--gold);
+}
+.assets-popup-btn-icon {
+    font-size: clamp(16px, 1.6vw, 24px);
+    flex-shrink: 0;
+}
+
+/* ===== DIALOG LUNARA ===== */
+
+.assets-dialog {
+    max-width: clamp(320px, 38vw, 620px);
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.assets-dialog-text {
+    font-size: clamp(12px, 1.1vw, 16px);
+    color: var(--text-secondary);
+    line-height: 1.7;
+    padding: clamp(8px, 0.8vh, 14px) 0;
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    overflow-y: auto;
+    scroll-behavior: smooth;
+    max-height: 30vh;
+    flex: 1;
+    min-height: 0;
+}
+
+.assets-dialog-loading {
+    color: var(--text-muted);
+    font-style: italic;
+    text-align: center;
+    padding: 12px 0;
+}
+
+.assets-dialog-action {
+    color: var(--text-muted);
+    font-style: italic;
+    font-size: 0.92em;
+}
+
+.assets-dialog-continue {
+    color: var(--gold);
+    font-family: 'Cinzel', serif;
+    margin-top: 8px;
+}
+
+.assets-name-btn {
+    background: var(--gold-soft) !important;
+    border-color: var(--gold-dim) !important;
+    color: var(--gold) !important;
+}
+.assets-name-btn:hover {
+    background: rgba(255,215,0,0.2) !important;
+}
+
+.assets-dialog-player {
+    color: var(--gold);
+    font-family: 'Cinzel', serif;
+    font-size: 0.95em;
+    font-style: italic;
+}

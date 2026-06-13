@@ -1,0 +1,414 @@
+{% extends "base_joc.html" %}
+{% block content_class %}pet-content-city{% endblock %}
+{% block title %}Castel{% endblock %}
+
+{% block content %}
+<div class="arena-wrap" id="castel-wrap">
+    <canvas id="castel-canvas"></canvas>
+    <div id="castel-tooltip" class="city-tooltip"></div>
+
+    <!-- Popup Aldric — meniu principal -->
+    <div class="assets-popup-overlay" id="aldric-overlay">
+        <div class="assets-popup">
+            <button class="assets-popup-close" onclick="closeAldric()">✕</button>
+            <div class="assets-popup-deco"></div>
+            <div class="assets-popup-title">Aldric Solvar</div>
+            <button class="assets-popup-btn" onclick="openVorbescRege()">
+                <span class="assets-popup-btn-icon">👑</span>
+                <span>Vreau să vorbesc cu Regele</span>
+            </button>
+            <button class="assets-popup-btn" onclick="openConcesiune()">
+                <span class="assets-popup-btn-icon">📜</span>
+                <span>Concesiune de vânătoare</span>
+            </button>
+            <button class="assets-popup-btn" onclick="closeAldric()">
+                <span class="assets-popup-btn-icon">🚶</span>
+                <span>La revedere</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Popup Vorbesc cu Regele — dialog -->
+    <div class="assets-popup-overlay" id="rege-overlay">
+        <div class="assets-popup assets-dialog" id="rege-dialog-box">
+            <button class="assets-popup-close" onclick="closeRege()">✕</button>
+            <div class="assets-popup-deco"></div>
+            <div class="assets-popup-title">Aldric Solvar</div>
+            <div class="assets-dialog-text" id="rege-text"></div>
+            <div id="rege-actions"></div>
+        </div>
+    </div>
+
+    <!-- Popup Concesiune -->
+    <div class="assets-popup-overlay" id="concesiune-overlay">
+        <div class="assets-popup assets-dialog" id="concesiune-dialog-box">
+            <button class="assets-popup-close" onclick="closeConcesiune()">✕</button>
+            <div class="assets-popup-deco"></div>
+            <div class="assets-popup-title">Aldric Solvar</div>
+            <div class="assets-dialog-text" id="concesiune-text"></div>
+            <div id="concesiune-actions"></div>
+        </div>
+    </div>
+
+    <!-- Buton Inapoi -->
+    <a href="{{ url_for('oras') }}" class="room-care-btn"
+       style="z-index:30; top:auto; bottom:14px; right:auto; left:14px;">
+        ← Oraș
+    </a>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/assets.css') }}">
+<style>
+.arena-wrap {
+    position: relative;
+    height: calc(100vh - var(--footbar-h));
+    width: auto;
+    aspect-ratio: 1287 / 816;
+    max-width: calc(100vw - var(--sidebar-w));
+    min-width: 0;
+    max-height: calc((100vw - var(--sidebar-w)) * 816 / 1287);
+    overflow: hidden;
+    background: #0a0a0a;
+    flex-shrink: 0;
+}
+#castel-canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+}
+</style>
+<script>
+const W = 1287;
+const H = 816;
+const BASE = '/static/castel/';
+
+const canvas  = document.getElementById('castel-canvas');
+const ctx     = canvas.getContext('2d', { willReadFrequently: true });
+const tooltip = document.getElementById('castel-tooltip');
+const wrap    = document.getElementById('castel-wrap');
+
+canvas.width  = W;
+canvas.height = H;
+
+const bgImg    = new Image();
+bgImg.crossOrigin = 'anonymous';
+bgImg.src = BASE + 'Castel.png';
+
+const aldricImg = new Image();
+aldricImg.crossOrigin = 'anonymous';
+aldricImg.src = BASE + 'AldricSolvar.png';
+
+const aldricOff = document.createElement('canvas');
+aldricOff.width  = W;
+aldricOff.height = H;
+
+let loaded = 0;
+function onLoad() {
+    loaded++;
+    if (loaded < 2) return;
+    ctx.drawImage(bgImg, 0, 0, W, H);
+    ctx.drawImage(aldricImg, 0, 0, W, H);
+    const oc = aldricOff.getContext('2d', { willReadFrequently: true });
+    oc.drawImage(aldricImg, 0, 0, W, H);
+}
+bgImg.onload    = onLoad;
+aldricImg.onload = onLoad;
+
+function redraw(hover) {
+    ctx.clearRect(0, 0, W, H);
+    if (bgImg.complete && bgImg.naturalWidth) ctx.drawImage(bgImg, 0, 0, W, H);
+    if (aldricImg.complete && aldricImg.naturalWidth) {
+        ctx.drawImage(aldricImg, 0, 0, W, H);
+        if (hover) {
+            ctx.save();
+            ctx.globalAlpha = 0.45;
+            ctx.globalCompositeOperation = 'lighter';
+            ctx.drawImage(aldricImg, 0, 0, W, H);
+            ctx.restore();
+        }
+    }
+}
+
+let lastHit = 0, currentHover = false, popupOpen = false;
+
+canvas.addEventListener('mousemove', (e) => {
+    if (popupOpen) return;
+    if (currentHover) {
+        tooltip.style.left = (e.clientX - wrap.getBoundingClientRect().left + 14) + 'px';
+        tooltip.style.top  = (e.clientY - wrap.getBoundingClientRect().top  - 8)  + 'px';
+    }
+    const now = Date.now();
+    if (now - lastHit < 33) return;
+    lastHit = now;
+    const rect = canvas.getBoundingClientRect();
+    const x = Math.floor((e.clientX - rect.left) * W / rect.width);
+    const y = Math.floor((e.clientY - rect.top)  * H / rect.height);
+    const oc = aldricOff.getContext('2d', { willReadFrequently: true });
+    const alpha = oc.getImageData(x, y, 1, 1).data[3];
+    const hit = alpha > 20;
+    if (hit !== currentHover) {
+        currentHover = hit;
+        canvas.style.cursor   = hit ? 'pointer' : 'default';
+        tooltip.style.opacity = hit ? '1' : '0';
+        if (hit) tooltip.textContent = '📜 Aldric Solvar';
+        redraw(hit);
+    }
+});
+
+canvas.addEventListener('click', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const x = Math.floor((e.clientX - rect.left) * W / rect.width);
+    const y = Math.floor((e.clientY - rect.top)  * H / rect.height);
+    const oc = aldricOff.getContext('2d', { willReadFrequently: true });
+    const alpha = oc.getImageData(x, y, 1, 1).data[3];
+    if (alpha > 20) openAldric();
+});
+
+canvas.addEventListener('mouseleave', () => {
+    tooltip.style.opacity = '0';
+    canvas.style.cursor = 'default';
+    currentHover = false;
+    redraw(false);
+});
+
+// Glow pulse
+let isHovering = false, fadeAlpha = 0, fadeDir = 1, fadActive = false;
+function fadeStep() {
+    if (isHovering) return;
+    fadeAlpha += fadeDir * 0.05;
+    if (fadeAlpha >= 1) { fadeAlpha = 1; fadeDir = -1; }
+    else if (fadeAlpha <= 0) {
+        fadeAlpha = 0; fadeDir = 1; fadActive = false;
+        redraw(false); return;
+    }
+    ctx.clearRect(0, 0, W, H);
+    if (bgImg.complete && bgImg.naturalWidth) ctx.drawImage(bgImg, 0, 0, W, H);
+    if (aldricImg.complete && aldricImg.naturalWidth) {
+        ctx.drawImage(aldricImg, 0, 0, W, H);
+        ctx.save();
+        ctx.globalAlpha = fadeAlpha * 0.30;
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.drawImage(aldricImg, 0, 0, W, H);
+        ctx.restore();
+    }
+    requestAnimationFrame(fadeStep);
+}
+setInterval(() => {
+    if (isHovering || fadActive) return;
+    fadActive = true; fadeAlpha = 0; fadeDir = 1;
+    requestAnimationFrame(fadeStep);
+}, 4000);
+canvas.addEventListener('mouseenter', () => { isHovering = true; fadActive = false; });
+canvas.addEventListener('mouseleave', () => { isHovering = false; redraw(false); });
+
+// ── STATE ──
+let aldricData = { concesiunevanatoare: 0, balance: 0 };
+
+async function loadAldricData() {
+    const resp = await fetch('/joc/petomania/api/castel/aldric');
+    const data = await resp.json();
+    if (data.ok) aldricData = data;
+}
+loadAldricData();
+
+// ── HELPERS POPUP ──
+function allClosed() {
+    ['aldric-overlay','rege-overlay','concesiune-overlay'].forEach(id => {
+        document.getElementById(id).classList.remove('open');
+    });
+    popupOpen = false;
+}
+
+function openAldric()      { allClosed(); document.getElementById('aldric-overlay').classList.add('open'); popupOpen = true; }
+function closeAldric()     { allClosed(); }
+function closeRege()       { allClosed(); }
+function closeConcesiune() { allClosed(); }
+
+['aldric-overlay','rege-overlay','concesiune-overlay'].forEach(id => {
+    document.getElementById(id).addEventListener('click', e => {
+        if (e.target.id === id) allClosed();
+    });
+});
+
+// ── DIALOG REGE ──
+const REGE_STEPS = [
+    {
+        text: `Ah... <em>Regele.</em><br><br>
+               Vrei să vorbești cu Regele. Interesant.<br><br>
+               Și tu ești... cine, exact?`,
+        actions: [
+            { label: 'Sunt un călător în căutare de audienţă.', next: 1 },
+            { label: 'Un luptător cu companioni redutabili.', next: 2 },
+        ]
+    },
+    {
+        text: `Un <em>călător.</em><br><br>
+               Regele Dacorum nu primește călători în audiență. Dacă ar face-o, ar sta zi și noapte ascultând povești despre drumuri și frig.<br><br>
+               Audiențele se acordă nobililor, ambasadorilor și celor cu titlu recunoscut.<br><br>
+               Tu ești vreunul dintre aceștia?`,
+        actions: [
+            { label: 'Nu, dar cazul meu e urgent.', next: 3 },
+            { label: 'Înțeleg. Voi reveni când voi fi mai... pregătit.', next: 4 },
+        ]
+    },
+    {
+        text: `Un luptător.<br><br>
+               Regele apreciază curajul — e drept. Dar curtea nu e arenă, iar audiențele nu se câștigă prin forță.<br><br>
+               Nobilimea, meritele politice și serviciile față de Coroană deschid aceste uși.<br><br>
+               Ai dovedit vreunul dintre acestea?`,
+        actions: [
+            { label: 'Nu încă, dar intenționez să o fac.', next: 3 },
+            { label: 'Înțeleg. Voi reveni când voi fi mai... pregătit.', next: 4 },
+        ]
+    },
+    {
+        text: `<em>Urgent.</em><br><br>
+               Toată lumea are urgențe. Negustorul cu marfa confiscată are o urgență. Fermierul cu recolta arsă are o urgență.<br><br>
+               Rolul meu e tocmai acesta — să protejez Regele de urgențele care nu îi aparțin.<br><br>
+               Dacă dorești cu adevărat o audiență, obține o scrisoare de recomandare de la un nobil al Regnum Dacorum.<br><br>
+               Până atunci, îți doresc drum bun.`,
+        actions: [
+            { label: 'Înțeleg. La revedere.', next: 4 },
+        ]
+    },
+    {
+        text: `O decizie înțeleaptă.<br><br>
+               Puterea se construiește în timp, nu se cere la ușă.<br><br>
+               Dacă vei ajunge vreodată să meriți o audiență regală, vei ști că drumul a meritat.<br><br>
+               <em>Noroc în călătoriile tale.</em>`,
+        actions: [
+            { label: 'Mulțumesc.', next: -1 },
+        ]
+    },
+];
+
+function openVorbescRege() {
+    allClosed();
+    document.getElementById('rege-overlay').classList.add('open');
+    popupOpen = true;
+    renderRegeStep(0);
+}
+
+function renderRegeStep(idx) {
+    if (idx === -1) { allClosed(); openAldric(); return; }
+    const step = REGE_STEPS[idx];
+    document.getElementById('rege-text').innerHTML = step.text;
+    const acts = document.getElementById('rege-actions');
+    acts.innerHTML = '';
+    step.actions.forEach(a => {
+        const btn = document.createElement('button');
+        btn.className = 'assets-popup-btn';
+        btn.innerHTML = `<span>${a.label}</span>`;
+        btn.onclick = () => renderRegeStep(a.next);
+        acts.appendChild(btn);
+    });
+}
+
+// ── DIALOG CONCESIUNE ──
+async function openConcesiune() {
+    allClosed();
+    await loadAldricData();
+    document.getElementById('concesiune-overlay').classList.add('open');
+    popupOpen = true;
+
+    if (aldricData.concesiunevanatoare) {
+        renderConcesiuneStep('already');
+    } else {
+        renderConcesiuneStep('intro');
+    }
+}
+
+function renderConcesiuneStep(step) {
+    const textEl = document.getElementById('concesiune-text');
+    const actsEl = document.getElementById('concesiune-actions');
+    actsEl.innerHTML = '';
+
+    if (step === 'already') {
+        textEl.innerHTML = `Ce sens are să o cumperi de două ori? E permanentă.<br><br>
+            <em>Concesiunea ta de vânătoare este deja înregistrată în registrele Coroanei.</em>`;
+        const btn = document.createElement('button');
+        btn.className = 'assets-popup-btn';
+        btn.innerHTML = '<span>Înțeleg. La revedere.</span>';
+        btn.onclick = () => { allClosed(); openAldric(); };
+        actsEl.appendChild(btn);
+        return;
+    }
+
+    if (step === 'intro') {
+        textEl.innerHTML = `Pădurile Regnum Dacorum sunt proprietatea Coroanei.<br><br>
+            Vânătoarea fără permisiune regală se pedepsește cu amendă grea sau confiscarea companionilor.<br><br>
+            <em>O concesiune de vânătoare îți acordă dreptul permanent de a vâna pe teritoriul regal.</em><br><br>
+            <span style="color:var(--gold)">Preț: 5.000 Dacoins</span><br>
+            <span style="font-size:12px;opacity:0.6">Soldul tău: ${aldricData.balance.toLocaleString()} Dacoins</span>`;
+        const btnCump = document.createElement('button');
+        btnCump.className = 'assets-popup-btn';
+        btnCump.innerHTML = '<span class="assets-popup-btn-icon">📜</span><span>Cumpăr concesiunea — 5.000 Dacoins</span>';
+        btnCump.onclick = () => renderConcesiuneStep('confirm');
+        actsEl.appendChild(btnCump);
+        const btnNu = document.createElement('button');
+        btnNu.className = 'assets-popup-btn';
+        btnNu.innerHTML = '<span>Nu acum.</span>';
+        btnNu.onclick = () => { allClosed(); openAldric(); };
+        actsEl.appendChild(btnNu);
+        return;
+    }
+
+    if (step === 'confirm') {
+        textEl.innerHTML = `Ești sigur?<br><br>
+            Odată acordată, concesiunea nu se poate revoca și suma nu se returnează.<br><br>
+            <em>Semnătura ta va fi înregistrată în arhivele Coroanei.</em>`;
+        const btnDa = document.createElement('button');
+        btnDa.className = 'assets-popup-btn';
+        btnDa.innerHTML = '<span class="assets-popup-btn-icon">✒️</span><span>Da, semnez.</span>';
+        btnDa.onclick = () => doConcesiune();
+        actsEl.appendChild(btnDa);
+        const btnNu = document.createElement('button');
+        btnNu.className = 'assets-popup-btn';
+        btnNu.innerHTML = '<span>M-am răzgândit.</span>';
+        btnNu.onclick = () => renderConcesiuneStep('intro');
+        actsEl.appendChild(btnNu);
+        return;
+    }
+
+    if (step === 'success') {
+        textEl.innerHTML = `<em>*Aldric deschide registrul masiv de pe pupitru și înscrie numele tău cu o peniță deliberată.*</em><br><br>
+            Gata. Ești acum posesor legal al unei concesiuni de vânătoare pe teritoriul Regnum Dacorum.<br><br>
+            <span style="color:#4caf7d">Nu uita: concesiunea îți dă dreptul să vânezi, nu și să devastezi. Companionii captivi vor fi tratați cu respect.</span>`;
+        const btn = document.createElement('button');
+        btn.className = 'assets-popup-btn';
+        btn.innerHTML = '<span>Înțeleg. Mulțumesc.</span>';
+        btn.onclick = () => { allClosed(); openAldric(); };
+        actsEl.appendChild(btn);
+        return;
+    }
+
+    if (step === 'insufficient') {
+        textEl.innerHTML = `Îmi pare rău, dar nu ai fondurile necesare.<br><br>
+            O concesiune regală costă <span style="color:var(--gold)">5.000 Dacoins</span>.<br><br>
+            <em>Întoarce-te când vei fi mai... prosper.</em>`;
+        const btn = document.createElement('button');
+        btn.className = 'assets-popup-btn';
+        btn.innerHTML = '<span>Înțeleg. La revedere.</span>';
+        btn.onclick = () => { allClosed(); openAldric(); };
+        actsEl.appendChild(btn);
+        return;
+    }
+}
+
+async function doConcesiune() {
+    const resp = await fetch('/joc/petomania/api/castel/concesiune', { method: 'POST' });
+    const data = await resp.json();
+    if (data.ok) {
+        aldricData.concesiunevanatoare = 1;
+        renderConcesiuneStep('success');
+    } else if (data.already) {
+        renderConcesiuneStep('already');
+    } else if (data.insufficient) {
+        renderConcesiuneStep('insufficient');
+    }
+}
+</script>
+{% endblock %}

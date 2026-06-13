@@ -1,0 +1,166 @@
+{% extends "base_joc.html" %}
+{% block title %}Îmbunătățiri{% endblock %}
+{% block content_class %}pet-content-scroll{% endblock %}
+
+{% block content %}
+<div class="pet-page-header">
+    <h1 class="pet-page-title">🏪 Îmbunătățiri</h1>
+    <p class="pet-page-sub">Personalizează-ți camera cu Dacoins.</p>
+</div>
+
+{% for category, items in shop.items() %}
+<section class="pet-section">
+    <h2 class="pet-section-title">
+        {% if category == 'wall' %}🪵 Pereți
+        {% elif category == 'floor' %}🪨 Pardoseală
+        {% elif category == 'chimney' %}🔥 Șemineu
+        {% else %}{{ category | capitalize }}
+        {% endif %}
+    </h2>
+
+    {# Gaseste indexul itemului activ in lista lineara #}
+    {% set active_index = namespace(val=0) %}
+    {% for item in items %}
+        {% if category == 'obiecte' %}
+            {% if room['items'] and item.key in room['items'] %}
+                {% set active_index.val = loop.index0 %}
+            {% endif %}
+        {% else %}
+            {% if room[category] == item.key %}
+                {% set active_index.val = loop.index0 %}
+            {% endif %}
+        {% endif %}
+    {% endfor %}
+
+    <div class="shop-grid">
+        {% for item in items %}
+        {% if category == 'obiecte' %}
+            {% set owned = (room['items'] and item.key in room['items']) %}
+        {% else %}
+            {% set owned = (room[category] == item.key) %}
+        {% endif %}
+        {% set linear = item.get('linear', False) %}
+        {% set item_index = loop.index0 %}
+
+        {# Logica vizibilitate pentru linear #}
+        {% if item.get('hidden_in_shop', False) %}
+            {% set show = false %}
+        {% elif linear %}
+            {# Arata doar: itemul activ si urmatorul dupa el #}
+            {% if item_index == active_index.val or item_index == active_index.val + 1 %}
+                {% set show = true %}
+            {% else %}
+                {% set show = false %}
+            {% endif %}
+        {% else %}
+            {% set show = true %}
+        {% endif %}
+
+        {% if show %}
+        <div class="shop-card {% if owned %}shop-card-owned{% endif %}">
+
+            <div class="shop-preview">
+                <img src="/static/room1/{{ item.file }}"
+                     alt="{{ item.name }}"
+                     class="shop-preview-img">
+                {% if owned %}
+                <div class="shop-owned-badge">✓ Activ</div>
+                {% endif %}
+            </div>
+
+            <div class="shop-info">
+                <div class="shop-item-name">{{ item.name }}</div>
+                <div class="shop-item-desc">{{ item.desc }}</div>
+                <div class="shop-item-footer">
+                    {% if item.price == 0 %}
+                        <span class="shop-price shop-price-free">Gratuit</span>
+                    {% else %}
+                        <span class="shop-price">🪙 {{ item.price }} Dacoins</span>
+                    {% endif %}
+
+                    {% if owned %}
+                        <button class="pet-btn shop-btn-owned" disabled>✓ Activ</button>
+                    {% elif item.price == 0 %}
+                        <button class="pet-btn pet-btn-feed shop-btn-buy"
+                                data-category="{{ category }}"
+                                data-key="{{ item.key }}">
+                            Aplică
+                        </button>
+                    {% elif dacoins >= item.price %}
+                        <button class="pet-btn pet-btn-feed shop-btn-buy"
+                                data-category="{{ category }}"
+                                data-key="{{ item.key }}"
+                                data-price="{{ item.price }}">
+                            Cumpără
+                        </button>
+                    {% else %}
+                        <button class="pet-btn shop-btn-poor" disabled
+                                title="Dacoins insuficienti">
+                            🪙 {{ item.price }}
+                        </button>
+                    {% endif %}
+                </div>
+            </div>
+
+        </div>
+        {% endif %}
+        {% endfor %}
+    </div>
+</section>
+{% endfor %}
+
+<div class="pet-toast" id="pet-toast"></div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+const API_BUY = "{{ url_for('api_cumpara') }}";
+
+document.querySelectorAll('.shop-btn-buy').forEach(btn => {
+    btn.addEventListener('click', async () => {
+        const category = btn.dataset.category;
+        const key      = btn.dataset.key;
+        const price    = parseInt(btn.dataset.price || 0);
+
+        if (price > 0) {
+            if (!confirm(`Cumperi pentru ${price} Dacoins?`)) return;
+        }
+
+        btn.disabled    = true;
+        btn.textContent = '⏳ ...';
+
+        try {
+            const resp = await fetch(API_BUY, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({category, key})
+            });
+            const data = await resp.json();
+
+            if (data.ok) {
+                showToast(data.msg, 'ok');
+                const balEl = document.getElementById('footbar-dacoins');
+                if (balEl) balEl.textContent = data.new_balance;
+                setTimeout(() => location.reload(), 1200);
+            } else {
+                showToast('❌ ' + data.error, 'err');
+                btn.disabled    = false;
+                btn.textContent = price > 0 ? 'Cumpără' : 'Aplică';
+            }
+        } catch(e) {
+            showToast('❌ Eroare de rețea.', 'err');
+            btn.disabled    = false;
+            btn.textContent = price > 0 ? 'Cumpără' : 'Aplică';
+        }
+    });
+});
+
+function showToast(msg, type) {
+    const t = document.getElementById('pet-toast');
+    t.textContent = msg;
+    t.className   = 'pet-toast pet-toast-' + type + ' pet-toast-show';
+    setTimeout(() => t.className = 'pet-toast', 3000);
+}
+</script>
+{% endblock %}

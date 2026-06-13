@@ -1,0 +1,180 @@
+{% extends "base_joc.html" %}
+{% block content_class %}pet-content-city{% endblock %}
+{% block title %}Companicon{% endblock %}
+
+{% block content %}
+<div class="companicon-wrap">
+    <canvas id="companicon-canvas"></canvas>
+
+    <button class="companicon-arrow companicon-arrow-left" id="btn-prev" onclick="prevPage()">❮</button>
+    <button class="companicon-arrow companicon-arrow-right" id="btn-next" onclick="nextPage()">❯</button>
+
+    <!-- Pagina stanga -->
+    <div class="comp-page comp-page-left" id="comp-left">
+        <div class="comp-pet-row" id="comp-pet-row-left">
+            <canvas id="pet-canvas-male" class="comp-pet-canvas"></canvas>
+            <canvas id="pet-canvas-female" class="comp-pet-canvas" style="display:none;"></canvas>
+        </div>
+        <div class="comp-code" id="comp-code">---</div>
+        <div class="comp-nature-row" id="comp-nature"></div>
+        <div class="comp-desc" id="comp-desc"></div>
+        <img class="comp-separator" src="/static/Assets/Separator.png" alt="">
+        <div class="comp-lore" id="comp-lore"></div>
+        <img class="comp-separator" src="/static/Assets/Separator.png" alt="">
+        <img class="comp-labuta" src="/static/Assets/Labuta.png" alt="">
+        <div class="comp-progress" id="comp-progress"></div>
+    </div>
+
+    <!-- Pagina dreapta -->
+    <div class="comp-page comp-page-right" id="comp-right">
+        <div class="comp-pet-row" id="comp-pet-row-right">
+            <canvas id="pet-canvas-2-male" class="comp-pet-canvas"></canvas>
+            <canvas id="pet-canvas-2-female" class="comp-pet-canvas" style="display:none;"></canvas>
+        </div>
+        <div class="comp-code" id="comp-code-2">---</div>
+        <div class="comp-nature-row" id="comp-nature-2"></div>
+        <div class="comp-desc" id="comp-desc-2"></div>
+        <img class="comp-separator" src="/static/Assets/Separator.png" alt="">
+        <div class="comp-lore" id="comp-lore-2"></div>
+        <img class="comp-separator" src="/static/Assets/Separator.png" alt="">
+        <img class="comp-labuta" src="/static/Assets/Labuta.png" alt="">
+        <div style="height:1px;flex-shrink:0;"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/companicon.css') }}">
+<script>
+const BOOK_IMG_URL = '/static/Assets/Companicon.png';
+
+const bookCanvas = document.getElementById('companicon-canvas');
+const bookCtx    = bookCanvas.getContext('2d');
+
+const BW = 1328, BH = 1024;
+bookCanvas.width  = BW;
+bookCanvas.height = BH;
+
+const bookImg = new Image();
+bookImg.crossOrigin = 'anonymous';
+bookImg.src = BOOK_IMG_URL;
+bookImg.onload = () => bookCtx.drawImage(bookImg, 0, 0, BW, BH);
+
+function setupCanvas(id) {
+    const c = document.getElementById(id);
+    c.width  = 400;
+    c.height = 400;
+    return { el: c, ctx: c.getContext('2d', { willReadFrequently: true }) };
+}
+
+const canvases = {
+    left:  { male: setupCanvas('pet-canvas-male'),   female: setupCanvas('pet-canvas-female') },
+    right: { male: setupCanvas('pet-canvas-2-male'), female: setupCanvas('pet-canvas-2-female') }
+};
+
+let entries = [];
+let currentPage = 0;
+
+async function loadEntries() {
+    const resp = await fetch('/joc/petomania/api/companicon');
+    const data = await resp.json();
+    if (!data.ok) return;
+    entries = data.entries;
+    showPage(0);
+}
+
+function showPage(pageIdx) {
+    currentPage = pageIdx;
+    const leftIdx  = pageIdx * 2;
+    const rightIdx = leftIdx + 1;
+
+    showEntry(entries[leftIdx], 'left', 'comp-code', 'comp-nature', 'comp-desc', 'comp-lore');
+
+    if (rightIdx < entries.length) {
+        document.getElementById('comp-right').style.visibility = 'visible';
+        showEntry(entries[rightIdx], 'right', 'comp-code-2', 'comp-nature-2', 'comp-desc-2', 'comp-lore-2');
+    } else {
+        document.getElementById('comp-right').style.visibility = 'hidden';
+        canvases.right.male.ctx.clearRect(0, 0, 400, 400);
+        canvases.right.female.ctx.clearRect(0, 0, 400, 400);
+    }
+
+    const totalPages = Math.ceil(entries.length / 2);
+    document.getElementById('btn-prev').disabled = pageIdx === 0;
+    document.getElementById('btn-next').disabled = pageIdx >= totalPages - 1;
+
+    const discovered = entries.filter(e => e.discovered).length;
+    document.getElementById('comp-progress').textContent =
+        `${discovered} / ${entries.length} descoperite`;
+}
+
+function showEntry(e, side, codeId, natureId, descId, loreId) {
+    if (!e) return;
+    const cv = canvases[side];
+
+    if (e.has_gender) {
+        cv.male.el.style.display   = 'inline-block';
+        cv.female.el.style.display = 'inline-block';
+        cv.male.el.style.width     = '45%';
+        cv.female.el.style.width   = '45%';
+    } else {
+        cv.male.el.style.display   = 'inline-block';
+        cv.female.el.style.display = 'none';
+        cv.male.el.style.width     = '55%';
+    }
+
+    document.getElementById(codeId).textContent = e.discovered ? e.name : e.code;
+
+    const natEl = document.getElementById(natureId);
+    natEl.innerHTML = e.discovered && e.nature_name
+        ? `<span class="comp-nature-label">Natură:</span> <span style="color:${e.nature_color}">${e.nature_icon} ${e.nature_name}</span>`
+        : '';
+
+    document.getElementById(descId).textContent = e.discovered
+        ? e.description
+        : 'Nedescoperit încă. Continuă aventura pentru a debloca această intrare.';
+
+    const loreEl = document.getElementById(loreId);
+    loreEl.innerHTML = e.discovered && e.lore
+        ? e.lore.split('\n\n').map(p => `<p>${p}</p>`).join('')
+        : '';
+
+    drawPet(cv.male.ctx, e.img_url_male, e.male_discovered);
+    if (e.has_gender) {
+        drawPet(cv.female.ctx, e.img_url_female, e.female_discovered);
+    }
+}
+
+function drawPet(ctx, url, isDiscovered) {
+    ctx.clearRect(0, 0, 400, 400);
+    if (!url) return;
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+        ctx.clearRect(0, 0, 400, 400);
+        const scale = Math.min(400 / img.width, 400 / img.height);
+        const w = img.width  * scale;
+        const h = img.height * scale;
+        ctx.drawImage(img, (400-w)/2, (400-h)/2, w, h);
+        if (!isDiscovered) {
+            ctx.save();
+            ctx.globalCompositeOperation = 'source-atop';
+            ctx.fillStyle = '#3d1f0a';
+            ctx.fillRect(0, 0, 400, 400);
+            ctx.restore();
+        }
+    };
+    img.src = url;
+}
+
+function prevPage() { if (currentPage > 0) showPage(currentPage - 1); }
+function nextPage() { showPage(currentPage + 1); }
+
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowLeft')  prevPage();
+    if (e.key === 'ArrowRight') nextPage();
+});
+
+loadEntries();
+</script>
+{% endblock %}

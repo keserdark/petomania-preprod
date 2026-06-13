@@ -1,0 +1,11 @@
+{% extends "base_joc.html" %}
+{% block title %}Eroare{% endblock %}
+
+{% block content %}
+<div class="pet-empty-state">
+    <div class="pet-empty-icon">⚠️</div>
+    <h2>Ceva nu a mers</h2>
+    <p>{{ error }}</p>
+    <a href="{{ url_for('acasa') }}" class="btn btn-gold">← Înapoi</a>
+</div>
+{% endblock %}
