@@ -103,6 +103,8 @@ class AdventureScene extends Phaser.Scene {
         this.player.setScale(1.0);
         this.player.setDepth(10);
         this.player.setCollideWorldBounds(true);
+        this.player.body.setSize(12, 12);
+        this.player.body.setOffset(18, 32);
         this.physics.world.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
 
         // Animatii
