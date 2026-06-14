@@ -3045,9 +3045,22 @@ def api_daiana_amenda():
 @app.route('/joc/petomania/api/aventura/mulge', methods=['POST'])
 @login_required
 def api_aventura_mulge():
+    import time
     from modules.inventory import inv_add
     user = get_current_user()
     uid  = int(user['id'])
+
+    # Cooldown 5 minute per user
+    cooldown_key = f'vaca_cooldown_{uid}'
+    last_mulge = session.get(cooldown_key, 0)
+    now = time.time()
+    if now - last_mulge < 300:
+        remaining = int(300 - (now - last_mulge))
+        mins = remaining // 60
+        secs = remaining % 60
+        return jsonify({'ok': False, 'msg': f'⏳ Vaca are nevoie de odihnă. Mai așteaptă {mins}m {secs}s.'})
+
+    session[cooldown_key] = now
     inv_add(uid, 'mancare', 'lapte', 1)
     return jsonify({'ok': True, 'msg': '🥛 Ai muls vaca și ai primit Lapte Proaspăt!'})
 
