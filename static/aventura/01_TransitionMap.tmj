@@ -3058,6 +3058,18 @@
                  "width":23.75,
                  "x":43.25,
                  "y":585.75
+                }, 
+                {
+                 "height":10.1818181818181,
+                 "id":352,
+                 "name":"",
+                 "opacity":1,
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":66,
+                 "x":13.6363636363636,
+                 "y":361.272727272727
                 }],
          "opacity":1,
          "type":"objectgroup",
@@ -3127,6 +3139,18 @@
                  "width":34,
                  "x":654.25,
                  "y":0
+                }, 
+                {
+                 "height":13.2727272727273,
+                 "id":351,
+                 "name":"",
+                 "opacity":1,
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":32.9090909090909,
+                 "x":655.090909090909,
+                 "y":-0.727272727272727
                 }],
          "opacity":1,
          "type":"objectgroup",
@@ -3137,7 +3161,7 @@
         {
          "draworder":"topdown",
          "id":17,
-         "name":"npcBody",
+         "name":"npcBody_Zuno",
          "objects":[
                 {
                  "height":16.1818181818182,
@@ -4610,7 +4634,7 @@
          "y":0
         }],
  "nextlayerid":23,
- "nextobjectid":351,
+ "nextobjectid":353,
  "orientation":"orthogonal",
  "renderorder":"right-down",
  "tiledversion":"1.12.2",
