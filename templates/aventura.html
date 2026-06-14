@@ -64,8 +64,9 @@ class AdventureScene extends Phaser.Scene {
     preload() {
         this.load.image('tiles', '/static/aventura/Main.png');
         this.load.tilemapTiledJSON('map', '/static/aventura/01_EntryMap.tmj');
-        // Player sprite — folosim imaginea petului activ
-        this.load.image('player', '{{ pet.image_url if pet else "/static/imagini/sigla.png" }}');
+        this.load.spritesheet('player', '/static/aventura/player_sheet.png', {
+            frameWidth: 48, frameHeight: 48
+        });
     }
 
     create() {
@@ -98,11 +99,37 @@ class AdventureScene extends Phaser.Scene {
         }
 
         // Player
-        this.player = this.physics.add.image(spawnX, spawnY, 'player');
-        this.player.setScale(1.2);
+        this.player = this.physics.add.sprite(spawnX, spawnY, 'player', 0);
+        this.player.setScale(1.0);
         this.player.setDepth(10);
         this.player.setCollideWorldBounds(true);
         this.physics.world.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
+
+        // Animatii
+        // Rand 0: static jos, 1: static stanga, 2: static dreapta, 3: static sus
+        // Rand 4: mers jos, 5: mers stanga, 6: mers dreapta, 7: mers sus
+        const COLS = 6;
+        const anims = [
+            { key: 'idle-down',  frames: [0],                     frameRate: 1,  repeat: 0 },
+            { key: 'idle-left',  frames: [COLS*1],                frameRate: 1,  repeat: 0 },
+            { key: 'idle-right', frames: [COLS*2],                frameRate: 1,  repeat: 0 },
+            { key: 'idle-up',    frames: [COLS*3],                frameRate: 1,  repeat: 0 },
+            { key: 'walk-down',  frames: this._frameRange(COLS*4, COLS*4+5), frameRate: 8, repeat: -1 },
+            { key: 'walk-left',  frames: this._frameRange(COLS*5, COLS*5+5), frameRate: 8, repeat: -1 },
+            { key: 'walk-right', frames: this._frameRange(COLS*6, COLS*6+5), frameRate: 8, repeat: -1 },
+            { key: 'walk-up',    frames: this._frameRange(COLS*7, COLS*7+5), frameRate: 8, repeat: -1 },
+        ];
+        anims.forEach(a => {
+            if (!this.anims.exists(a.key)) {
+                this.anims.create({
+                    key: a.key,
+                    frames: a.frames.map ? a.frames.map(f => ({ key: 'player', frame: f })) : [{ key: 'player', frame: a.frames[0] }],
+                    frameRate: a.frameRate,
+                    repeat: a.repeat
+                });
+            }
+        });
+        this.player.anims.play('idle-down');
 
         // Collision layer
         const colLayer = map.getObjectLayer('Colision');
@@ -154,6 +181,12 @@ class AdventureScene extends Phaser.Scene {
         layerCopaci.setDepth(15);
     }
 
+    _frameRange(start, end) {
+        const arr = [];
+        for (let i = start; i <= end; i++) arr.push(i);
+        return arr;
+    }
+
     update(time, delta) {
         if (inEncounter) {
             this.player.setVelocity(0, 0);
@@ -178,6 +211,17 @@ class AdventureScene extends Phaser.Scene {
             vy *= 0.707;
         }
         this.player.setVelocity(vx, vy);
+
+        // Animatii directionale
+        if (vx === 0 && vy === 0) {
+            const cur = this.player.anims.currentAnim?.key || 'idle-down';
+            const dir = cur.replace('walk-', '').replace('idle-', '');
+            this.player.anims.play('idle-' + dir, true);
+        } else if (Math.abs(vx) > Math.abs(vy)) {
+            this.player.anims.play(vx < 0 ? 'walk-left' : 'walk-right', true);
+        } else {
+            this.player.anims.play(vy < 0 ? 'walk-up' : 'walk-down', true);
+        }
 
         // Camera follow manual — fara spasme
         const cam = this.cameras.main;
