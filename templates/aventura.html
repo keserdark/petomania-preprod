@@ -231,6 +231,7 @@ class AdventureScene extends Phaser.Scene {
         this.cameras.main.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
         this.cameras.main.setZoom(this.camZoom);
         this.cameras.main.roundPixels = true;
+        this.cameras.main.startFollow(this.player, true, 1, 1);
 
         // Input
         this.cursors = this.input.keyboard.createCursorKeys();
@@ -278,15 +279,6 @@ class AdventureScene extends Phaser.Scene {
         } else {
             this.player.anims.play(vy < 0 ? 'walk-up' : 'walk-down', true);
         }
-
-        // Camera — centrata pe player
-        const cam = this.cameras.main;
-        const hw = cam.width  / 2 / this.camZoom;
-        const hh = cam.height / 2 / this.camZoom;
-        const mx = this.mapRef.widthInPixels;
-        const my = this.mapRef.heightInPixels;
-        cam.scrollX = Phaser.Math.Clamp(Math.round(this.player.x - hw), 0, mx - cam.width / this.camZoom);
-        cam.scrollY = Phaser.Math.Clamp(Math.round(this.player.y - hh), 0, my - cam.height / this.camZoom);
 
         const px = this.player.x;
         const py = this.player.y;
