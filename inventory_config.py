@@ -51,7 +51,17 @@ INVENTORY_ITEMS = {
 
     # ── MÂNCARE ──────────────────────────────────
     'mancare': [
-        # Primul item va fi adăugat aici
+        {
+            'key':   'lapte',
+            'name':  'Lapte Proaspăt',
+            'desc':  'Lapte muls direct de la vacă. Restaurează 5 HP și 5 MP.',
+            'icon':  '🥛',
+            'img':   '/static/items/inventory_items/Lapte.png',
+            'price': 0,
+            'effects': { 'hp': 5, 'mp': 5 },
+            'usable_outside_battle': True,
+            'quest_item': False,
+        },
     ],
 
     # ── MEDICAMENTE ──────────────────────────────

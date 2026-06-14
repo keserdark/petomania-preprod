@@ -22,7 +22,34 @@
          color:rgba(255,255,255,0.7);padding:6px 14px;border-radius:8px;
          font-size:12px;font-family:'Cinzel',serif;"></div>
 
-    <!-- Transition fade -->
+    <!-- Vaca dialog -->
+    <div id="vaca-dialog" style="display:none;position:absolute;inset:0;z-index:100;
+         background:rgba(0,0,0,0.75);align-items:center;justify-content:center;">
+        <div style="background:var(--bg-elev,#1a1d23);border:1px solid rgba(255,255,255,0.15);
+                    border-radius:16px;padding:28px 32px;max-width:320px;text-align:center;">
+            <div style="font-size:48px;margin-bottom:12px;">🐄</div>
+            <div style="font-family:'Cinzel',serif;font-size:16px;font-weight:700;color:#c9a84c;margin-bottom:8px;">
+                Vacă
+            </div>
+            <div style="font-size:14px;color:rgba(255,255,255,0.7);margin-bottom:20px;">
+                Vrei să mulgi vaca?
+            </div>
+            <div style="display:flex;gap:12px;justify-content:center;">
+                <button onclick="mulgeVaca()"
+                        style="background:#c9a84c;color:#1a1300;font-family:'Cinzel',serif;
+                               font-weight:700;padding:10px 24px;border:none;border-radius:8px;cursor:pointer;">
+                    ✅ Da
+                </button>
+                <button onclick="closeVacaDialog()"
+                        style="background:rgba(255,255,255,0.1);color:#fff;font-family:'Cinzel',serif;
+                               padding:10px 24px;border:1px solid rgba(255,255,255,0.2);
+                               border-radius:8px;cursor:pointer;">
+                    ❌ Nu
+                </button>
+            </div>
+            <div id="vaca-msg" style="font-size:13px;color:#4caf7d;margin-top:12px;min-height:18px;"></div>
+        </div>
+    </div>
     <div id="transition-fade" style="position:absolute;inset:0;z-index:90;
          background:#000;opacity:0;pointer-events:none;transition:opacity 0.4s;"></div>
 
@@ -227,7 +254,19 @@ class AdventureScene extends Phaser.Scene {
             }
         });
 
-        // Camera
+        // Vaca zones
+        this.vacaZones = [];
+        const vacaLayer = map.getObjectLayer('Vaca');
+        if (vacaLayer) {
+            vacaLayer.objects.forEach(obj => {
+                this.vacaZones.push({
+                    left:   obj.x - 16,
+                    right:  obj.x + obj.width + 16,
+                    top:    obj.y - 16,
+                    bottom: obj.y + obj.height + 16,
+                });
+            });
+        }
         this.camZoom = 3.5;
         this.cameras.main.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
         this.cameras.main.setZoom(this.camZoom);
@@ -277,7 +316,13 @@ class AdventureScene extends Phaser.Scene {
 
         // Space — interact
         if (Phaser.Input.Keyboard.JustDown(this.wasd.interact)) {
-            onInteract(this.player.x, this.player.y);
+            const nearVaca = this.vacaZones && this.vacaZones.some(z =>
+                this.player.x >= z.left && this.player.x <= z.right &&
+                this.player.y >= z.top  && this.player.y <= z.bottom
+            );
+            if (nearVaca) {
+                showVacaDialog();
+            }
         }
 
         // Animatii
@@ -375,9 +420,36 @@ function goToVanatoare() {
     window.location.href = '/joc/petomania/vanatoare?zone=' + mapName;
 }
 
+// ── VACA ─────────────────────────────────────────────────
+let vacaCooldown = false;
+
+function showVacaDialog() {
+    if (vacaCooldown) return;
+    inEncounter = true;
+    document.getElementById('vaca-msg').textContent = '';
+    document.getElementById('vaca-dialog').style.display = 'flex';
+}
+
+function closeVacaDialog() {
+    inEncounter = false;
+    document.getElementById('vaca-dialog').style.display = 'none';
+}
+
+async function mulgeVaca() {
+    const resp = await fetch('/joc/petomania/api/aventura/mulge', { method: 'POST' });
+    const data = await resp.json();
+    document.getElementById('vaca-msg').textContent = data.msg || (data.ok ? '🥛 Ai primit Lapte Proaspăt!' : '❌ Eroare.');
+    if (data.ok) {
+        vacaCooldown = true;
+        setTimeout(() => {
+            closeVacaDialog();
+            vacaCooldown = false;
+        }, 2000);
+    }
+}
+
 // ── INTERACT ─────────────────────────────────────────────
 function onInteract(px, py) {
-    // Placeholder — va fi extins cu NPC dialog, case etc.
     console.log('Interact la:', Math.round(px), Math.round(py));
 }
 </script>

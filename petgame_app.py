@@ -3042,6 +3042,16 @@ def api_daiana_amenda():
 
 
 
+@app.route('/joc/petomania/api/aventura/mulge', methods=['POST'])
+@login_required
+def api_aventura_mulge():
+    from modules.inventory import inv_add
+    user = get_current_user()
+    uid  = int(user['id'])
+    inv_add(uid, 'mancare', 'lapte', 1)
+    return jsonify({'ok': True, 'msg': '🥛 Ai muls vaca și ai primit Lapte Proaspăt!'})
+
+
 # ── PVP ───────────────────────────────────────────────────────────────────
 
 @app.route('/joc/petomania/pvp/queue')
