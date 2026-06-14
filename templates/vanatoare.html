@@ -685,7 +685,7 @@ function goBack() {
     const aventuraMap = sessionStorage.getItem('aventura_map');
     if (aventuraMap) {
         sessionStorage.removeItem('aventura_map');
-        window.location.href = '/joc/petomania/aventura?map=' + aventuraMap + '&from=' + aventuraMap;
+        window.location.href = '/joc/petomania/aventura?map=' + aventuraMap;
     } else {
         window.location.href = '/joc/petomania/padure';
     }

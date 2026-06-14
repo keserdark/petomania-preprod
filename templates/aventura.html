@@ -111,8 +111,17 @@ class AdventureScene extends Phaser.Scene {
         // Determina spawn
         let spawnX, spawnY;
 
+        // Daca avem pozitie salvata din lupta anterioara
+        const savedX = sessionStorage.getItem('aventura_x');
+        const savedY = sessionStorage.getItem('aventura_y');
+        if (savedX && savedY) {
+            spawnX = parseFloat(savedX);
+            spawnY = parseFloat(savedY);
+            sessionStorage.removeItem('aventura_x');
+            sessionStorage.removeItem('aventura_y');
+        }
         // Daca venim dintr-o alta mapa, spawnam la transition zone corespunzatoare
-        if (spawnFromMap) {
+        else if (spawnFromMap) {
             const fromLayer = map.getObjectLayer(spawnFromMap);
             if (fromLayer && fromLayer.objects.length > 0) {
                 const sp = fromLayer.objects[0];
@@ -294,7 +303,7 @@ class AdventureScene extends Phaser.Scene {
                 px >= z.left && px <= z.right && py >= z.top && py <= z.bottom
             );
             if (inZone && (vx !== 0 || vy !== 0) && Math.random() < ENCOUNTER_CHANCE) {
-                triggerEncounter(currentMap);
+                triggerEncounter(currentMap, px, py);
             }
         }
     }
@@ -333,11 +342,12 @@ function doTransition(targetMap, fromMap) {
 }
 
 // ── ENCOUNTER ────────────────────────────────────────────
-function triggerEncounter(mapName) {
+function triggerEncounter(mapName, px, py) {
     inEncounter = true;
     encounterCooldown = 5000;
-    // Salveaza harta curenta in sessionStorage pt vanatoare
     sessionStorage.setItem('aventura_map', mapName);
+    sessionStorage.setItem('aventura_x', Math.round(px));
+    sessionStorage.setItem('aventura_y', Math.round(py));
     document.getElementById('encounter-msg').textContent =
         'Ești în zona sălbatică. Vrei să lupți sau să fugi?';
     document.getElementById('encounter-overlay').style.display = 'flex';

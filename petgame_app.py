@@ -2356,6 +2356,7 @@ def api_vanatoare_flee():
 def vanatoare():
     zone = request.args.get('zone', 'vanatoare')
     session['aventura_zone'] = zone
+    session['from_aventura'] = zone != 'vanatoare'
     return render_template('vanatoare.html')
 
 
@@ -3003,6 +3004,10 @@ def api_daiana_check():
     from modules.db import get_user_permissions, get_dacoins
     user  = get_current_user()
     uid   = int(user['id'])
+    # Nu triggerăm Daiana dacă venim din aventură
+    if session.get('from_aventura'):
+        session.pop('daiana_trigger', None)
+        return jsonify({'trigger': False})
     trigger = session.pop('daiana_trigger', False)
     if not trigger:
         return jsonify({'trigger': False})
