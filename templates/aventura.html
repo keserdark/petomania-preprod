@@ -70,6 +70,7 @@ let spawnFromMap = urlParams.get('from') || null; // de unde venim
 let encounterCooldown = 0;
 let inEncounter       = false;
 let transitioning     = false;
+let transitionCooldown = 2000; // ms — nu triggera tranzitii imediat la load
 
 // ── LAYER NAMES ─────────────────────────────────────────
 // Toate layerele posibile din ambele mape — cele care lipsesc sunt ignorate
@@ -293,7 +294,7 @@ class AdventureScene extends Phaser.Scene {
         const py = this.player.y;
 
         // Transition check
-        if (!transitioning) {
+        if (!transitioning && transitionCooldown <= 0) {
             for (const zone of this.transitionZones) {
                 if (px >= zone.left && px <= zone.right && py >= zone.top && py <= zone.bottom) {
                     doTransition(zone.target, currentMap);
@@ -301,6 +302,7 @@ class AdventureScene extends Phaser.Scene {
                 }
             }
         }
+        if (transitionCooldown > 0) transitionCooldown -= delta;
 
         // Encounter check
         if (encounterCooldown > 0) {
