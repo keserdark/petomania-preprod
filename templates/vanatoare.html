@@ -81,7 +81,7 @@
             <div class="result-icon" id="result-icon"></div>
             <div class="result-title" id="result-title"></div>
             <div class="result-reward" id="result-reward"></div>
-            <button class="result-btn" onclick="window.location='/joc/petomania/padure'">← Înapoi la Pădure</button>
+            <button class="result-btn" onclick="goBack()">← Înapoi</button>
         </div>
     </div>
 </div>
@@ -494,7 +494,7 @@ function showCaptureSuccess(data) {
                 style="background:rgba(201,168,76,0.15);border:1px solid rgba(201,168,76,0.4);color:var(--gold,#c9a84c);font-family:'Cinzel',serif;font-size:14px;font-weight:600;padding:12px 28px;border-radius:10px;cursor:pointer;width:100%">
                 Mergi la Menajerie
             </button>
-            <button onclick="document.getElementById('capture-overlay').remove();window.location.href='/joc/petomania/padure';"
+            <button onclick="document.getElementById('capture-overlay').remove();goBack();"
                 style="background:transparent;border:1px solid rgba(255,255,255,0.15);color:rgba(255,255,255,0.6);font-size:13px;padding:10px 28px;border-radius:10px;cursor:pointer;width:100%;margin-top:8px">
                 ← Înapoi
             </button>
@@ -644,7 +644,7 @@ async function tryFlee() {
             _daiana_data = daianaData;
             showDaianaOverlay();
         } else {
-            window.location = '/joc/petomania/padure';
+            goBack();
         }
     } else {
         addLog('❌ Nu ai reușit să fugi!');
@@ -680,5 +680,15 @@ showResult = function(winner, reward, xpResults) {
     battleFinished = true;
     _origShowResult(winner, reward, xpResults);
 };
+
+function goBack() {
+    const aventuraMap = sessionStorage.getItem('aventura_map');
+    if (aventuraMap) {
+        sessionStorage.removeItem('aventura_map');
+        window.location.href = '/joc/petomania/aventura?map=' + aventuraMap + '&from=' + aventuraMap;
+    } else {
+        window.location.href = '/joc/petomania/padure';
+    }
+}
 </script>
 {% endblock %}
