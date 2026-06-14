@@ -165,9 +165,15 @@ class AdventureScene extends Phaser.Scene {
         }
 
         // Camera
-        this.cameras.main.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
-        this.cameras.main.setZoom(2.0);
-        this.cameras.main.roundPixels = true;
+        const mapPixelH = map.heightInPixels;
+        const mapPixelW = map.widthInPixels;
+        const zoomH = wrap.clientHeight / mapPixelH;
+        const zoomW = wrap.clientWidth  / mapPixelW;
+        const zoom  = Math.min(zoomH, zoomW);
+
+        this.cameras.main.setBounds(0, 0, mapPixelW, mapPixelH);
+        this.cameras.main.setZoom(zoom);
+        this.camZoom = zoom;
         // Nu folosim startFollow — mutam manual in update
 
         // Input
@@ -227,8 +233,8 @@ class AdventureScene extends Phaser.Scene {
 
         // Camera follow manual — fara spasme
         const cam = this.cameras.main;
-        const hw = cam.width  / 2 / cam.zoom;
-        const hh = cam.height / 2 / cam.zoom;
+        const hw = cam.width  / 2 / this.camZoom;
+        const hh = cam.height / 2 / this.camZoom;
         const mx = this.mapRef.widthInPixels;
         const my = this.mapRef.heightInPixels;
         const cx = Phaser.Math.Clamp(Math.round(this.player.x), hw, mx - hw);
