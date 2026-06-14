@@ -22,6 +22,30 @@
          color:rgba(255,255,255,0.7);padding:6px 14px;border-radius:8px;
          font-size:12px;font-family:'Cinzel',serif;"></div>
 
+    <!-- Zuno dialog -->
+    <div id="zuno-dialog" style="display:none;position:absolute;inset:0;z-index:100;
+         background:rgba(0,0,0,0.82);align-items:flex-end;justify-content:center;padding-bottom:20px;">
+        <div style="background:var(--bg-elev,#1a1d23);border:1px solid rgba(201,168,76,0.3);
+                    border-radius:16px;padding:0;max-width:480px;width:100%;overflow:hidden;position:relative;">
+            <!-- Zuno image -->
+            <div style="display:flex;align-items:flex-end;gap:0;background:linear-gradient(135deg,#1a1d23,#0d0f14);">
+                <img src="/static/aventura/Zuno.png" alt="Zuno"
+                     style="height:180px;object-fit:contain;object-position:bottom;flex-shrink:0;">
+                <div style="padding:20px 20px 20px 8px;flex:1;">
+                    <div style="font-family:'Cinzel',serif;font-size:15px;font-weight:700;color:#c9a84c;margin-bottom:6px;">
+                        Zuno
+                    </div>
+                    <div id="zuno-text" style="font-size:13px;color:rgba(255,255,255,0.8);line-height:1.6;">
+                    </div>
+                </div>
+            </div>
+            <!-- Buttons -->
+            <div id="zuno-actions" style="display:flex;gap:10px;padding:14px 20px;border-top:1px solid rgba(255,255,255,0.08);justify-content:flex-end;">
+            </div>
+            <div id="zuno-msg" style="font-size:12px;color:#4caf7d;padding:0 20px 12px;min-height:16px;text-align:right;"></div>
+        </div>
+    </div>
+
     <!-- Vaca dialog -->
     <div id="vaca-dialog" style="display:none;position:absolute;inset:0;z-index:100;
          background:rgba(0,0,0,0.75);align-items:center;justify-content:center;">
@@ -267,6 +291,21 @@ class AdventureScene extends Phaser.Scene {
                 });
             });
         }
+
+        // NPC zones
+        this.npcZones = [];
+        const npcObjLayer = map.getObjectLayer('npcBody') || map.getObjectLayer('NpcObjects');
+        if (npcObjLayer) {
+            npcObjLayer.objects.forEach(obj => {
+                this.npcZones.push({
+                    name:   obj.name || 'npc',
+                    left:   obj.x - 16,
+                    right:  obj.x + obj.width + 16,
+                    top:    obj.y - 16,
+                    bottom: obj.y + obj.height + 16,
+                });
+            });
+        }
         this.camZoom = 3.5;
         this.cameras.main.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
         this.cameras.main.setZoom(this.camZoom);
@@ -316,11 +355,17 @@ class AdventureScene extends Phaser.Scene {
 
         // Space — interact
         if (Phaser.Input.Keyboard.JustDown(this.wasd.interact)) {
+            const px2 = this.player.x;
+            const py2 = this.player.y;
             const nearVaca = this.vacaZones && this.vacaZones.some(z =>
-                this.player.x >= z.left && this.player.x <= z.right &&
-                this.player.y >= z.top  && this.player.y <= z.bottom
+                px2 >= z.left && px2 <= z.right && py2 >= z.top && py2 <= z.bottom
             );
-            if (nearVaca) {
+            const nearNpc = this.npcZones && this.npcZones.find(z =>
+                px2 >= z.left && px2 <= z.right && py2 >= z.top && py2 <= z.bottom
+            );
+            if (nearNpc) {
+                showNpcDialog(nearNpc.name);
+            } else if (nearVaca) {
                 showVacaDialog();
             }
         }
@@ -448,9 +493,105 @@ async function mulgeVaca() {
     }
 }
 
-// ── INTERACT ─────────────────────────────────────────────
-function onInteract(px, py) {
-    console.log('Interact la:', Math.round(px), Math.round(py));
+// ── ZUNO NPC ─────────────────────────────────────────────
+const ZUNO_DIALOGS = {
+    'Zuno': {
+        intro: `Psst... tu, da, tu. Vino-ncoace.<br><br>
+                Am nevoie de un serviciu mic. Știi vacile alea de pe câmp?
+                Mulge una pentru mine și îți dau <span style="color:#c9a84c;font-weight:700">150 Dacoins</span>.<br><br>
+                Nu e ilegal... exact. E doar... discret.`,
+        accept: `Bine, știam că ești deștept. Adu-mi un lapte și ne înțelegem.<br><br>
+                 <span style="color:rgba(255,255,255,0.5);font-size:12px">*Zuno se uită nervos în jur*</span>`,
+        decline: `Hm. Cum vrei. Dar dacă te răzgândești, știi unde mă găsești.<br><br>
+                  <span style="color:rgba(255,255,255,0.5);font-size:12px">*Zuno întoarce spatele cu o mișcare teatrală*</span>`,
+        complete: `Da, da, exact asta îmi trebuia! <span style="color:#c9a84c;font-weight:700">150 Dacoins</span> cum am promis.<br><br>
+                   Poate mai ai nevoie de Dacoins mâine? Știi unde mă găsești.`,
+        already_done: `Ai mai făcut o treabă bună azi. Revino mâine, am să am altă nevoie.<br><br>
+                       <span style="color:rgba(255,255,255,0.5);font-size:12px">*Zuno verifică sticla cu satisfacție*</span>`,
+        no_milk: `Unde e laptele? Nu pot să te plătesc fără lapte.<br><br>
+                  Du-te și mulge o vacă mai întâi, apoi vorbim.`,
+    }
+};
+
+function showNpcDialog(npcName) {
+    const npc = npcName || 'Zuno';
+    inEncounter = true;
+    document.getElementById('zuno-msg').textContent = '';
+    fetch('/joc/petomania/api/aventura/zuno/status')
+        .then(r => r.json())
+        .then(data => {
+            const dialog = ZUNO_DIALOGS['Zuno'];
+            const textEl = document.getElementById('zuno-text');
+            const actEl  = document.getElementById('zuno-actions');
+            actEl.innerHTML = '';
+
+            const mkBtn = (label, style, fn) => {
+                const b = document.createElement('button');
+                b.innerHTML = label;
+                b.style.cssText = style;
+                b.onclick = fn;
+                actEl.appendChild(b);
+            };
+
+            const baseBtn = 'font-family:Cinzel,serif;font-weight:700;padding:8px 18px;border-radius:8px;cursor:pointer;font-size:13px;border:none;';
+
+            if (data.quest_done) {
+                textEl.innerHTML = dialog.already_done;
+                mkBtn('← Pleacă', baseBtn + 'background:rgba(255,255,255,0.1);color:#fff;border:1px solid rgba(255,255,255,0.2)!important;', closeZunoDialog);
+            } else if (data.quest_accepted && !data.has_milk) {
+                textEl.innerHTML = dialog.no_milk;
+                mkBtn('← Pleacă', baseBtn + 'background:rgba(255,255,255,0.1);color:#fff;border:1px solid rgba(255,255,255,0.2)!important;', closeZunoDialog);
+            } else if (data.quest_accepted && data.has_milk) {
+                textEl.innerHTML = dialog.accept;
+                mkBtn('✅ Dă laptele', baseBtn + 'background:#c9a84c;color:#1a1300;', deliverMilk);
+                mkBtn('← Mai târziu', baseBtn + 'background:rgba(255,255,255,0.1);color:#fff;border:1px solid rgba(255,255,255,0.2)!important;', closeZunoDialog);
+            } else {
+                textEl.innerHTML = dialog.intro;
+                mkBtn('✅ Accept', baseBtn + 'background:#c9a84c;color:#1a1300;', acceptZunoQuest);
+                mkBtn('❌ Refuz', baseBtn + 'background:rgba(255,255,255,0.1);color:#fff;border:1px solid rgba(255,255,255,0.2)!important;', () => {
+                    textEl.innerHTML = dialog.decline;
+                    actEl.innerHTML = '';
+                    mkBtn('← Pleacă', baseBtn + 'background:rgba(255,255,255,0.1);color:#fff;border:1px solid rgba(255,255,255,0.2)!important;', closeZunoDialog);
+                });
+            }
+
+            document.getElementById('zuno-dialog').style.display = 'flex';
+        });
+}
+
+function closeZunoDialog() {
+    inEncounter = false;
+    document.getElementById('zuno-dialog').style.display = 'none';
+}
+
+async function acceptZunoQuest() {
+    const resp = await fetch('/joc/petomania/api/aventura/zuno/accept', { method: 'POST' });
+    const data = await resp.json();
+    const dialog = ZUNO_DIALOGS['Zuno'];
+    document.getElementById('zuno-text').innerHTML = dialog.accept;
+    document.getElementById('zuno-actions').innerHTML = '';
+    const b = document.createElement('button');
+    b.innerHTML = '← Înțeles';
+    b.style.cssText = 'font-family:Cinzel,serif;font-weight:700;padding:8px 18px;border-radius:8px;cursor:pointer;font-size:13px;background:rgba(255,255,255,0.1);color:#fff;border:1px solid rgba(255,255,255,0.2);';
+    b.onclick = closeZunoDialog;
+    document.getElementById('zuno-actions').appendChild(b);
+}
+
+async function deliverMilk() {
+    const resp = await fetch('/joc/petomania/api/aventura/zuno/deliver', { method: 'POST' });
+    const data = await resp.json();
+    if (data.ok) {
+        document.getElementById('zuno-text').innerHTML = ZUNO_DIALOGS['Zuno'].complete;
+        document.getElementById('zuno-msg').textContent = `+150 ✦ Dacoins`;
+        document.getElementById('zuno-actions').innerHTML = '';
+        const b = document.createElement('button');
+        b.innerHTML = '← Mulțumesc';
+        b.style.cssText = 'font-family:Cinzel,serif;font-weight:700;padding:8px 18px;border-radius:8px;cursor:pointer;font-size:13px;background:#c9a84c;color:#1a1300;border:none;';
+        b.onclick = closeZunoDialog;
+        document.getElementById('zuno-actions').appendChild(b);
+    } else {
+        document.getElementById('zuno-msg').textContent = data.msg || 'Eroare.';
+    }
 }
 </script>
 {% endblock %}

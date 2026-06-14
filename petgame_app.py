@@ -3042,6 +3042,89 @@ def api_daiana_amenda():
 
 
 
+@app.route('/joc/petomania/api/aventura/zuno/status')
+@login_required
+def api_zuno_status():
+    import time
+    from modules.db import get_db
+    user = get_current_user()
+    uid  = int(user['id'])
+    conn = get_db()
+
+    # Verifica daca quest-ul e facut azi
+    today = time.strftime('%Y-%m-%d')
+    quest_done     = session.get(f'zuno_done_{uid}') == today
+    quest_accepted = session.get(f'zuno_accepted_{uid}', False)
+
+    # Verifica daca are lapte in inventar
+    row = conn.execute(
+        'SELECT quantity FROM inventory WHERE user_id=? AND category=? AND item_key=?',
+        (uid, 'mancare', 'lapte')
+    ).fetchone()
+    conn.close()
+    has_milk = bool(row and row['quantity'] > 0)
+
+    return jsonify({
+        'quest_done':     quest_done,
+        'quest_accepted': quest_accepted,
+        'has_milk':       has_milk,
+    })
+
+
+@app.route('/joc/petomania/api/aventura/zuno/accept', methods=['POST'])
+@login_required
+def api_zuno_accept():
+    user = get_current_user()
+    uid  = int(user['id'])
+    session[f'zuno_accepted_{uid}'] = True
+    return jsonify({'ok': True})
+
+
+@app.route('/joc/petomania/api/aventura/zuno/deliver', methods=['POST'])
+@login_required
+def api_zuno_deliver():
+    import time
+    from modules.db import get_db
+    user = get_current_user()
+    uid  = int(user['id'])
+
+    # Verifica daca quest-ul e deja facut azi
+    today = time.strftime('%Y-%m-%d')
+    if session.get(f'zuno_done_{uid}') == today:
+        return jsonify({'ok': False, 'msg': 'Ai făcut deja asta azi.'})
+
+    # Verifica daca are lapte
+    conn = get_db()
+    row = conn.execute(
+        'SELECT quantity FROM inventory WHERE user_id=? AND category=? AND item_key=?',
+        (uid, 'mancare', 'lapte')
+    ).fetchone()
+    if not row or row['quantity'] < 1:
+        conn.close()
+        return jsonify({'ok': False, 'msg': 'Nu ai lapte în inventar.'})
+
+    # Scade laptele
+    new_qty = row['quantity'] - 1
+    if new_qty == 0:
+        conn.execute('DELETE FROM inventory WHERE user_id=? AND category=? AND item_key=?',
+                     (uid, 'mancare', 'lapte'))
+    else:
+        conn.execute('UPDATE inventory SET quantity=? WHERE user_id=? AND category=? AND item_key=?',
+                     (new_qty, uid, 'mancare', 'lapte'))
+
+    # Acorda 150 dacoins
+    conn.execute('INSERT OR IGNORE INTO dacoins (user_id, balance) VALUES (?, 300)', (uid,))
+    conn.execute('UPDATE dacoins SET balance = balance + 150 WHERE user_id=?', (uid,))
+    conn.commit()
+    conn.close()
+
+    # Marcheaza quest-ul ca facut azi
+    session[f'zuno_done_{uid}'] = today
+    session[f'zuno_accepted_{uid}'] = False
+
+    return jsonify({'ok': True, 'reward': 150})
+
+
 @app.route('/joc/petomania/api/aventura/mulge', methods=['POST'])
 @login_required
 def api_aventura_mulge():
