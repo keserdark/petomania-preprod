@@ -3,8 +3,7 @@
     {
      "export":
         {
-         "format":"json",
-         "target":"01_TransitionMap.tmj"
+         "format":"json"
         }
     },
  "height":64,
@@ -3138,7 +3137,7 @@
         {
          "draworder":"topdown",
          "id":17,
-         "name":"npc",
+         "name":"npcBody",
          "objects":[
                 {
                  "height":16.1818181818182,
