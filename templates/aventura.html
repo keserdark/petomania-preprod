@@ -70,6 +70,7 @@ class AdventureScene extends Phaser.Scene {
 
     create() {
         const map = this.make.tilemap({ key: 'map' });
+        this.mapRef = map;
         const tileset = map.addTilesetImage('Main', 'tiles');
 
         // Tile layers — ordinea contează pentru z
@@ -136,9 +137,9 @@ class AdventureScene extends Phaser.Scene {
 
         // Camera
         this.cameras.main.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
-        this.cameras.main.startFollow(this.player, true, 1, 1);
         this.cameras.main.setZoom(2.5);
         this.cameras.main.roundPixels = true;
+        // Nu folosim startFollow — mutam manual in update
 
         // Input
         this.cursors = this.input.keyboard.createCursorKeys();
@@ -177,6 +178,17 @@ class AdventureScene extends Phaser.Scene {
             vy *= 0.707;
         }
         this.player.setVelocity(vx, vy);
+
+        // Camera follow manual — fara spasme
+        const cam = this.cameras.main;
+        const hw = cam.width  / 2 / cam.zoom;
+        const hh = cam.height / 2 / cam.zoom;
+        const mx = this.mapRef.widthInPixels;
+        const my = this.mapRef.heightInPixels;
+        const cx = Phaser.Math.Clamp(Math.round(this.player.x), hw, mx - hw);
+        const cy = Phaser.Math.Clamp(Math.round(this.player.y), hh, my - hh);
+        cam.scrollX = cx - hw;
+        cam.scrollY = cy - hh;
 
         // Encounter check
         if (encounterCooldown > 0) {
