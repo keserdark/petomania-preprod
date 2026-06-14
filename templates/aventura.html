@@ -72,8 +72,14 @@ let inEncounter       = false;
 let transitioning     = false;
 
 // ── LAYER NAMES ─────────────────────────────────────────
-const TILE_LAYERS = ['Apa','Grass','Drum','Boarder','Gard','Gard2','Stump','Flori','Sign','CompFind','CopaciSub','Copaci'];
-const OVER_PLAYER = ['Copaci']; // layere care apar peste player
+// Toate layerele posibile din ambele mape — cele care lipsesc sunt ignorate
+const TILE_LAYERS = [
+    'Apa', 'Land', 'Grass', 'Drum', 'Deal', 'Boarder',
+    'Gard', 'Gard2', 'Gardfix', 'Stump', 'Trunks',
+    'Flori', 'Legume', 'Sign', 'CompFind', 'Comfind',
+    'Pietre', 'CopaciSub', 'Copaci', 'Casa', 'npc',
+];
+const OVER_PLAYER = ['Copaci', 'Casa']; // layere care apar peste player
 
 // ── SCENE ───────────────────────────────────────────────
 class AdventureScene extends Phaser.Scene {
@@ -175,8 +181,8 @@ class AdventureScene extends Phaser.Scene {
         });
         this.player.anims.play('idle-down');
 
-        // Coliziuni
-        const colLayer = map.getObjectLayer('Colision');
+        // Coliziuni — suporta ambele nume (Colision si Collison)
+        const colLayer = map.getObjectLayer('Colision') || map.getObjectLayer('Collison');
         if (colLayer) {
             this.colliders = this.physics.add.staticGroup();
             colLayer.objects.forEach(obj => {
@@ -191,11 +197,11 @@ class AdventureScene extends Phaser.Scene {
             this.physics.add.collider(this.player, this.colliders);
         }
 
-        // Comfind zones
+        // MobSpawn zones — suporta si Comfind (vechea mapa)
         this.comfindZones = [];
-        const comfindLayer = map.getObjectLayer('Comfind');
-        if (comfindLayer) {
-            comfindLayer.objects.forEach(obj => {
+        const mobLayer = map.getObjectLayer('MobSpawn') || map.getObjectLayer('Comfind');
+        if (mobLayer) {
+            mobLayer.objects.forEach(obj => {
                 this.comfindZones.push({
                     left: obj.x, right: obj.x + obj.width,
                     top: obj.y,  bottom: obj.y + obj.height
@@ -203,10 +209,12 @@ class AdventureScene extends Phaser.Scene {
             });
         }
 
-        // Transition zones — cauta toate layerele care se termina in "Map"
+        // Transition zones — cauta toate layerele care se termina in "Map" sau "Oras"
         this.transitionZones = [];
         map.objects.forEach(layer => {
-            if (layer.name.endsWith('Map') && layer.name !== currentMap) {
+            const isTransition = (layer.name.endsWith('Map') || layer.name.endsWith('Oras')) 
+                                 && layer.name !== currentMap;
+            if (isTransition) {
                 layer.objects.forEach(obj => {
                     this.transitionZones.push({
                         target: layer.name,
