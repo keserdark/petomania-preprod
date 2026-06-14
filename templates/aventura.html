@@ -227,9 +227,7 @@ class AdventureScene extends Phaser.Scene {
         });
 
         // Camera
-        const zoomH = wrap.clientHeight / map.heightInPixels;
-        const zoomW = wrap.clientWidth  / map.widthInPixels;
-        this.camZoom = Math.min(zoomH, zoomW);
+        this.camZoom = 2.5;
         this.cameras.main.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
         this.cameras.main.setZoom(this.camZoom);
         this.cameras.main.roundPixels = true;
