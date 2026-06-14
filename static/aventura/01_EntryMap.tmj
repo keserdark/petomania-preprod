@@ -3,7 +3,8 @@
     {
      "export":
         {
-         "format":"json"
+         "format":"json",
+         "target":"..\/..\/..\/..\/..\/Desktop\/01_EntryMap.tmj"
         }
     },
  "height":32,
@@ -1056,9 +1057,59 @@
          "visible":true,
          "x":0,
          "y":0
+        }, 
+        {
+         "color":"#ffaa00",
+         "draworder":"topdown",
+         "id":20,
+         "name":"02_TransitionMap",
+         "objects":[
+                {
+                 "height":32.3333333333333,
+                 "id":64,
+                 "name":"",
+                 "opacity":1,
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":11,
+                 "x":-6,
+                 "y":145.333333333333
+                }],
+         "opacity":1,
+         "tintcolor":"#ffaa00",
+         "type":"objectgroup",
+         "visible":true,
+         "x":0,
+         "y":0
+        }, 
+        {
+         "color":"#ffaa00",
+         "draworder":"topdown",
+         "id":21,
+         "name":"01_TransitionMap",
+         "objects":[
+                {
+                 "height":5.33333333333333,
+                 "id":65,
+                 "name":"",
+                 "opacity":1,
+                 "rotation":0,
+                 "type":"",
+                 "visible":true,
+                 "width":27,
+                 "x":305.666666666667,
+                 "y":-0.666666666666667
+                }],
+         "opacity":1,
+         "tintcolor":"#ffaa00",
+         "type":"objectgroup",
+         "visible":true,
+         "x":0,
+         "y":0
         }],
- "nextlayerid":20,
- "nextobjectid":64,
+ "nextlayerid":22,
+ "nextobjectid":66,
  "orientation":"orthogonal",
  "renderorder":"right-down",
  "tiledversion":"1.12.2",

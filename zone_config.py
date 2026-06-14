@@ -113,6 +113,22 @@ ZONE_POOLS = {
         ],
     },
 
+    '01_EntryMap': {
+        'species': [
+            ('cat',      'common'),
+            ('duck',     'common'),
+            ('blackcat', 'rare'),
+            ('dog',      'common'),
+        ],
+        'natures': [
+            ('nature', 'common'),
+            ('water',  'common'),
+            ('earth',  'common'),
+            ('shadow', 'rare'),
+        ],
+    },
+
+
     'pescuit': {
         'species': [
             ('verdian',    'common'),

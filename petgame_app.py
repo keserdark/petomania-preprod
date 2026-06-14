@@ -2190,7 +2190,7 @@ def api_vanatoare_start():
                 'gender':    slot.get('gender', 'male'),
             })
 
-    npc = generate_npc(player['level'], zone='vanatoare')
+    npc = generate_npc(player['level'], zone=session.get('aventura_zone', 'vanatoare'))
 
     moveset_data = []
     for mk in player['moveset']:
@@ -2265,7 +2265,7 @@ def api_vanatoare_turn():
         if npc_index < battle_size:
             # Mai sunt NPC-uri — genereaza urmatorul
             from modules.battle import generate_npc as _gen_npc
-            new_npc = _gen_npc(player['level'], zone='vanatoare')
+            new_npc = _gen_npc(player['level'], zone=session.get('aventura_zone', 'vanatoare'))
             pass  # fara dacoins la vanatoare
             session['vanatoare_npc']       = new_npc
             session['vanatoare_npc_index'] = npc_index + 1
@@ -2354,6 +2354,8 @@ def api_vanatoare_flee():
 @app.route('/joc/petomania/vanatoare')
 @login_required
 def vanatoare():
+    zone = request.args.get('zone', 'vanatoare')
+    session['aventura_zone'] = zone
     return render_template('vanatoare.html')
 
 

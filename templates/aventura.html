@@ -7,14 +7,24 @@
     <div id="phaser-container"></div>
 
     <!-- HUD -->
-    <div id="aventura-hud" style="position:absolute;top:12px;left:12px;z-index:50;display:flex;gap:8px;align-items:center;">
-        <a href="/joc/petomania/acasa" id="btn-back-aventura"
+    <div id="aventura-hud" style="position:absolute;top:12px;left:12px;z-index:50;">
+        <a href="/joc/petomania/acasa"
            style="background:rgba(0,0,0,0.6);border:1px solid rgba(255,255,255,0.2);
                   color:#fff;padding:6px 14px;border-radius:8px;font-size:13px;
                   text-decoration:none;font-family:'Cinzel',serif;">
             ← Regat
         </a>
     </div>
+
+    <!-- Map name HUD -->
+    <div id="map-name-hud" style="position:absolute;top:12px;right:12px;z-index:50;
+         background:rgba(0,0,0,0.6);border:1px solid rgba(255,255,255,0.15);
+         color:rgba(255,255,255,0.7);padding:6px 14px;border-radius:8px;
+         font-size:12px;font-family:'Cinzel',serif;"></div>
+
+    <!-- Transition fade -->
+    <div id="transition-fade" style="position:absolute;inset:0;z-index:90;
+         background:#000;opacity:0;pointer-events:none;transition:opacity 0.4s;"></div>
 
     <!-- Encounter overlay -->
     <div id="encounter-overlay" style="display:none;position:absolute;inset:0;z-index:100;
@@ -48,54 +58,80 @@
 </style>
 <script>
 // ── CONFIG ──────────────────────────────────────────────
-const TILE_SIZE    = 16;
-const MAP_W        = 32;
-const MAP_H        = 32;
-const PLAYER_SPEED = 120;
-const ENCOUNTER_CHANCE = 0.008; // sansa per frame in zona comfind
+const PLAYER_SPEED     = 120;
+const ENCOUNTER_CHANCE = 0.008;
+const MAPS_BASE        = '/static/aventura/';
+const TILESET_IMG      = MAPS_BASE + 'Main.png';
+
+// Harta curenta — poate fi schimbata prin URL param
+const urlParams  = new URLSearchParams(window.location.search);
+let currentMap   = urlParams.get('map') || '01_EntryMap';
+let spawnFromMap = urlParams.get('from') || null; // de unde venim
 
 let encounterCooldown = 0;
-let inEncounter = false;
+let inEncounter       = false;
+let transitioning     = false;
 
-// ── PHASER SCENE ────────────────────────────────────────
+// ── LAYER NAMES ─────────────────────────────────────────
+const TILE_LAYERS = ['Apa','Grass','Drum','Boarder','Gard','Gard2','Stump','Flori','Sign','CompFind','CopaciSub','Copaci'];
+const OVER_PLAYER = ['Copaci']; // layere care apar peste player
+
+// ── SCENE ───────────────────────────────────────────────
 class AdventureScene extends Phaser.Scene {
     constructor() { super('AdventureScene'); }
 
     preload() {
-        this.load.image('tiles', '/static/aventura/Main.png');
-        this.load.tilemapTiledJSON('map', '/static/aventura/01_EntryMap.tmj');
-        this.load.spritesheet('player', '/static/aventura/player_sheet.png', {
+        this.load.image('tiles', TILESET_IMG);
+        this.load.tilemapTiledJSON('map', MAPS_BASE + currentMap + '.tmj');
+        this.load.spritesheet('player', MAPS_BASE + 'player_sheet.png', {
             frameWidth: 48, frameHeight: 48
         });
     }
 
     create() {
+        // Update HUD
+        document.getElementById('map-name-hud').textContent = currentMap.replace(/_/g, ' ');
+
         const map = this.make.tilemap({ key: 'map' });
         this.mapRef = map;
         const tileset = map.addTilesetImage('Main', 'tiles');
 
-        // Tile layers — ordinea contează pentru z
-        const layerApa      = map.createLayer('Apa',      tileset, 0, 0);
-        const layerGrass    = map.createLayer('Grass',    tileset, 0, 0);
-        const layerDrum     = map.createLayer('Drum',     tileset, 0, 0);
-        const layerBoarder  = map.createLayer('Boarder',  tileset, 0, 0);
-        const layerGard     = map.createLayer('Gard',     tileset, 0, 0);
-        const layerGard2    = map.createLayer('Gard2',    tileset, 0, 0);
-        const layerStump    = map.createLayer('Stump',    tileset, 0, 0);
-        const layerFlori    = map.createLayer('Flori',    tileset, 0, 0);
-        const layerSign     = map.createLayer('Sign',     tileset, 0, 0);
-        const layerCompFind = map.createLayer('CompFind', tileset, 0, 0);
-        const layerCopaciSub= map.createLayer('CopaciSub',tileset,0, 0);
-        const layerCopaci   = map.createLayer('Copaci',   tileset, 0, 0);
+        // Tile layers
+        this.tileLayers = {};
+        TILE_LAYERS.forEach(name => {
+            try {
+                const l = map.createLayer(name, tileset, 0, 0);
+                if (l) {
+                    this.tileLayers[name] = l;
+                    if (OVER_PLAYER.includes(name)) l.setDepth(15);
+                }
+            } catch(e) {}
+        });
 
-        // Player spawn
-        const spawnLayer = map.getObjectLayer('PlayerSpawn');
-        let spawnX = MAP_W * TILE_SIZE / 2;
-        let spawnY = MAP_H * TILE_SIZE / 2;
-        if (spawnLayer && spawnLayer.objects.length > 0) {
-            const sp = spawnLayer.objects[0];
-            spawnX = sp.x + sp.width / 2;
-            spawnY = sp.y + sp.height / 2;
+        // Determina spawn
+        let spawnX, spawnY;
+
+        // Daca venim dintr-o alta mapa, spawnam la transition zone corespunzatoare
+        if (spawnFromMap) {
+            const fromLayer = map.getObjectLayer(spawnFromMap);
+            if (fromLayer && fromLayer.objects.length > 0) {
+                const sp = fromLayer.objects[0];
+                spawnX = sp.x + sp.width / 2;
+                spawnY = sp.y + sp.height / 2;
+            }
+        }
+
+        // Fallback la PlayerSpawn
+        if (!spawnX) {
+            const spawnLayer = map.getObjectLayer('PlayerSpawn');
+            if (spawnLayer && spawnLayer.objects.length > 0) {
+                const sp = spawnLayer.objects[0];
+                spawnX = sp.x + sp.width / 2;
+                spawnY = sp.y + sp.height / 2;
+            } else {
+                spawnX = map.widthInPixels / 2;
+                spawnY = map.heightInPixels / 2;
+            }
         }
 
         // Player
@@ -108,32 +144,30 @@ class AdventureScene extends Phaser.Scene {
         this.physics.world.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
 
         // Animatii
-        // Rand 0: static jos, 1: static stanga, 2: static dreapta, 3: static sus
-        // Rand 4: mers jos, 5: mers stanga, 6: mers dreapta, 7: mers sus
         const COLS = 6;
-        const anims = [
-            { key: 'idle-down',  frames: [0],                     frameRate: 1,  repeat: 0 },
-            { key: 'idle-left',  frames: [COLS*1],                frameRate: 1,  repeat: 0 },
-            { key: 'idle-right', frames: [COLS*2],                frameRate: 1,  repeat: 0 },
-            { key: 'idle-up',    frames: [COLS*3],                frameRate: 1,  repeat: 0 },
-            { key: 'walk-down',  frames: this._frameRange(COLS*4, COLS*4+5), frameRate: 8, repeat: -1 },
-            { key: 'walk-left',  frames: this._frameRange(COLS*5, COLS*5+5), frameRate: 8, repeat: -1 },
-            { key: 'walk-right', frames: this._frameRange(COLS*6, COLS*6+5), frameRate: 8, repeat: -1 },
-            { key: 'walk-up',    frames: this._frameRange(COLS*7, COLS*7+5), frameRate: 8, repeat: -1 },
+        const animDefs = [
+            { key: 'idle-down',  frames: [0],           rate: 1,  rep: 0  },
+            { key: 'idle-left',  frames: [COLS],        rate: 1,  rep: 0  },
+            { key: 'idle-right', frames: [COLS*2],      rate: 1,  rep: 0  },
+            { key: 'idle-up',    frames: [COLS*3],      rate: 1,  rep: 0  },
+            { key: 'walk-down',  frames: this._range(COLS*4, COLS*4+5), rate: 8, rep: -1 },
+            { key: 'walk-left',  frames: this._range(COLS*5, COLS*5+5), rate: 8, rep: -1 },
+            { key: 'walk-right', frames: this._range(COLS*6, COLS*6+5), rate: 8, rep: -1 },
+            { key: 'walk-up',    frames: this._range(COLS*7, COLS*7+5), rate: 8, rep: -1 },
         ];
-        anims.forEach(a => {
+        animDefs.forEach(a => {
             if (!this.anims.exists(a.key)) {
                 this.anims.create({
                     key: a.key,
-                    frames: a.frames.map ? a.frames.map(f => ({ key: 'player', frame: f })) : [{ key: 'player', frame: a.frames[0] }],
-                    frameRate: a.frameRate,
-                    repeat: a.repeat
+                    frames: a.frames.map(f => ({ key: 'player', frame: f })),
+                    frameRate: a.rate,
+                    repeat: a.rep
                 });
             }
         });
         this.player.anims.play('idle-down');
 
-        // Collision layer
+        // Coliziuni
         const colLayer = map.getObjectLayer('Colision');
         if (colLayer) {
             this.colliders = this.physics.add.staticGroup();
@@ -150,31 +184,38 @@ class AdventureScene extends Phaser.Scene {
         }
 
         // Comfind zones
-        const comfindLayer = map.getObjectLayer('Comfind');
         this.comfindZones = [];
+        const comfindLayer = map.getObjectLayer('Comfind');
         if (comfindLayer) {
             comfindLayer.objects.forEach(obj => {
-                const zone = this.add.zone(
-                    obj.x + obj.width / 2,
-                    obj.y + obj.height / 2,
-                    obj.width, obj.height
-                );
-                this.physics.add.existing(zone, true);
-                this.comfindZones.push(zone);
+                this.comfindZones.push({
+                    left: obj.x, right: obj.x + obj.width,
+                    top: obj.y,  bottom: obj.y + obj.height
+                });
             });
         }
 
-        // Camera
-        const mapPixelH = map.heightInPixels;
-        const mapPixelW = map.widthInPixels;
-        const zoomH = wrap.clientHeight / mapPixelH;
-        const zoomW = wrap.clientWidth  / mapPixelW;
-        const zoom  = Math.min(zoomH, zoomW);
+        // Transition zones — cauta toate layerele care se termina in "Map"
+        this.transitionZones = [];
+        map.objects.forEach(layer => {
+            if (layer.name.endsWith('Map') && layer.name !== currentMap) {
+                layer.objects.forEach(obj => {
+                    this.transitionZones.push({
+                        target: layer.name,
+                        left: obj.x, right: obj.x + obj.width,
+                        top: obj.y,  bottom: obj.y + obj.height
+                    });
+                });
+            }
+        });
 
-        this.cameras.main.setBounds(0, 0, mapPixelW, mapPixelH);
-        this.cameras.main.setZoom(zoom);
-        this.camZoom = zoom;
-        // Nu folosim startFollow — mutam manual in update
+        // Camera
+        const zoomH = wrap.clientHeight / map.heightInPixels;
+        const zoomW = wrap.clientWidth  / map.widthInPixels;
+        this.camZoom = Math.min(zoomH, zoomW);
+        this.cameras.main.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
+        this.cameras.main.setZoom(this.camZoom);
+        this.cameras.main.roundPixels = true;
 
         // Input
         this.cursors = this.input.keyboard.createCursorKeys();
@@ -184,24 +225,20 @@ class AdventureScene extends Phaser.Scene {
             left:  Phaser.Input.Keyboard.KeyCodes.A,
             right: Phaser.Input.Keyboard.KeyCodes.D,
         });
-
-        // Copaci peste player
-        layerCopaci.setDepth(15);
     }
 
-    _frameRange(start, end) {
-        const arr = [];
-        for (let i = start; i <= end; i++) arr.push(i);
-        return arr;
+    _range(s, e) {
+        const a = [];
+        for (let i = s; i <= e; i++) a.push(i);
+        return a;
     }
 
     update(time, delta) {
-        if (inEncounter) {
+        if (inEncounter || transitioning) {
             this.player.setVelocity(0, 0);
             return;
         }
 
-        // Movement
         const left  = this.cursors.left.isDown  || this.wasd.left.isDown;
         const right = this.cursors.right.isDown || this.wasd.right.isDown;
         const up    = this.cursors.up.isDown    || this.wasd.up.isDown;
@@ -212,18 +249,14 @@ class AdventureScene extends Phaser.Scene {
         if (right) vx =  PLAYER_SPEED;
         if (up)    vy = -PLAYER_SPEED;
         if (down)  vy =  PLAYER_SPEED;
+        if (vx !== 0 && vy !== 0) { vx *= 0.707; vy *= 0.707; }
 
-        // Normalizeaza diagonal
-        if (vx !== 0 && vy !== 0) {
-            vx *= 0.707;
-            vy *= 0.707;
-        }
         this.player.setVelocity(vx, vy);
 
-        // Animatii directionale
+        // Animatii
         if (vx === 0 && vy === 0) {
             const cur = this.player.anims.currentAnim?.key || 'idle-down';
-            const dir = cur.replace('walk-', '').replace('idle-', '');
+            const dir = cur.replace('walk-','').replace('idle-','');
             this.player.anims.play('idle-' + dir, true);
         } else if (Math.abs(vx) > Math.abs(vy)) {
             this.player.anims.play(vx < 0 ? 'walk-left' : 'walk-right', true);
@@ -231,29 +264,37 @@ class AdventureScene extends Phaser.Scene {
             this.player.anims.play(vy < 0 ? 'walk-up' : 'walk-down', true);
         }
 
-        // Camera follow manual — fara spasme
+        // Camera
         const cam = this.cameras.main;
         const hw = cam.width  / 2 / this.camZoom;
         const hh = cam.height / 2 / this.camZoom;
         const mx = this.mapRef.widthInPixels;
         const my = this.mapRef.heightInPixels;
-        const cx = Phaser.Math.Clamp(Math.round(this.player.x), hw, mx - hw);
-        const cy = Phaser.Math.Clamp(Math.round(this.player.y), hh, my - hh);
-        cam.scrollX = cx - hw;
-        cam.scrollY = cy - hh;
+        cam.scrollX = Phaser.Math.Clamp(Math.round(this.player.x), hw, mx - hw) - hw;
+        cam.scrollY = Phaser.Math.Clamp(Math.round(this.player.y), hh, my - hh) - hh;
+
+        const px = this.player.x;
+        const py = this.player.y;
+
+        // Transition check
+        if (!transitioning) {
+            for (const zone of this.transitionZones) {
+                if (px >= zone.left && px <= zone.right && py >= zone.top && py <= zone.bottom) {
+                    doTransition(zone.target, currentMap);
+                    return;
+                }
+            }
+        }
 
         // Encounter check
         if (encounterCooldown > 0) {
             encounterCooldown -= delta;
         } else {
-            const px = this.player.x;
-            const py = this.player.y;
-            const inZone = this.comfindZones.some(zone => {
-                const b = zone.getBounds();
-                return px >= b.left && px <= b.right && py >= b.top && py <= b.bottom;
-            });
+            const inZone = this.comfindZones.some(z =>
+                px >= z.left && px <= z.right && py >= z.top && py <= z.bottom
+            );
             if (inZone && (vx !== 0 || vy !== 0) && Math.random() < ENCOUNTER_CHANCE) {
-                triggerEncounter();
+                triggerEncounter(currentMap);
             }
         }
     }
@@ -267,21 +308,36 @@ const game = new Phaser.Game({
     height: wrap.clientHeight,
     parent: 'phaser-container',
     backgroundColor: '#2d5a1b',
-    physics: {
-        default: 'arcade',
-        arcade:  { debug: true }
-    },
-    scene: [AdventureScene],
+    physics: { default: 'arcade', arcade: { debug: false } },
+    scene:  [AdventureScene],
 });
 
 window.addEventListener('resize', () => {
     game.scale.resize(wrap.clientWidth, wrap.clientHeight);
 });
 
+// ── TRANSITIONS ──────────────────────────────────────────
+function doTransition(targetMap, fromMap) {
+    if (transitioning) return;
+    transitioning = true;
+
+    const fade = document.getElementById('transition-fade');
+    fade.style.opacity = '1';
+
+    setTimeout(() => {
+        const url = new URL(window.location.href);
+        url.searchParams.set('map', targetMap);
+        url.searchParams.set('from', fromMap);
+        window.location.href = url.toString();
+    }, 400);
+}
+
 // ── ENCOUNTER ────────────────────────────────────────────
-function triggerEncounter() {
+function triggerEncounter(mapName) {
     inEncounter = true;
     encounterCooldown = 5000;
+    // Salveaza harta curenta in sessionStorage pt vanatoare
+    sessionStorage.setItem('aventura_map', mapName);
     document.getElementById('encounter-msg').textContent =
         'Ești în zona sălbatică. Vrei să lupți sau să fugi?';
     document.getElementById('encounter-overlay').style.display = 'flex';
@@ -294,7 +350,8 @@ function closeEncounter() {
 }
 
 function goToVanatoare() {
-    window.location.href = '/joc/petomania/vanatoare';
+    const mapName = sessionStorage.getItem('aventura_map') || '01_EntryMap';
+    window.location.href = '/joc/petomania/vanatoare?zone=' + mapName;
 }
 </script>
 {% endblock %}
