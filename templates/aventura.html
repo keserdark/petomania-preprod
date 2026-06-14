@@ -136,9 +136,9 @@ class AdventureScene extends Phaser.Scene {
 
         // Camera
         this.cameras.main.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
-        this.cameras.main.startFollow(this.player, true, 0.15, 0.15);
-        this.cameras.main.setDeadzone(4, 4);
+        this.cameras.main.startFollow(this.player, true, 1, 1);
         this.cameras.main.setZoom(2.5);
+        this.cameras.main.roundPixels = true;
 
         // Input
         this.cursors = this.input.keyboard.createCursorKeys();
