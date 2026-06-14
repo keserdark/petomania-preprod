@@ -292,13 +292,13 @@ class AdventureScene extends Phaser.Scene {
             });
         }
 
-        // NPC zones
+        // NPC zones — cauta layer Zuno sau npcBody
         this.npcZones = [];
-        const npcObjLayer = map.getObjectLayer('npcBody') || map.getObjectLayer('NpcObjects');
+        const npcObjLayer = map.getObjectLayer('Zuno') || map.getObjectLayer('npcBody') || map.getObjectLayer('NpcObjects');
         if (npcObjLayer) {
             npcObjLayer.objects.forEach(obj => {
                 this.npcZones.push({
-                    name:   obj.name || 'npc',
+                    name:   npcObjLayer.name === 'Zuno' ? 'Zuno' : (obj.name || 'npc'),
                     left:   obj.x - 16,
                     right:  obj.x + obj.width + 16,
                     top:    obj.y - 16,
