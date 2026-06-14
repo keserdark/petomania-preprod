@@ -279,14 +279,14 @@ class AdventureScene extends Phaser.Scene {
             this.player.anims.play(vy < 0 ? 'walk-up' : 'walk-down', true);
         }
 
-        // Camera
+        // Camera — centrata pe player
         const cam = this.cameras.main;
         const hw = cam.width  / 2 / this.camZoom;
         const hh = cam.height / 2 / this.camZoom;
         const mx = this.mapRef.widthInPixels;
         const my = this.mapRef.heightInPixels;
-        cam.scrollX = Phaser.Math.Clamp(Math.round(this.player.x), hw, mx - hw) - hw;
-        cam.scrollY = Phaser.Math.Clamp(Math.round(this.player.y), hh, my - hh) - hh;
+        cam.scrollX = Phaser.Math.Clamp(Math.round(this.player.x - hw), 0, mx - cam.width / this.camZoom);
+        cam.scrollY = Phaser.Math.Clamp(Math.round(this.player.y - hh), 0, my - cam.height / this.camZoom);
 
         const px = this.player.x;
         const py = this.player.y;
